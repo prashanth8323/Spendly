@@ -37,6 +37,17 @@
     --nav-h: 68px;
     --safe-bottom: env(safe-area-inset-bottom, 0px);
   }
+  :root.light {
+    --bg: #f5f5f7;
+    --bg2: #ffffff;
+    --bg3: #ebebf0;
+    --bg4: #e0e0e8;
+    --border: #d0d0dc;
+    --text: #0f0f14;
+    --text2: #50506a;
+    --text3: #90909a;
+    --shadow: 0 8px 32px rgba(0,0,0,0.1);
+  }
   *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
   html, body { height: 100%; overflow: hidden; background: var(--bg); color: var(--text); font-family: var(--font-body); font-size: 15px; }
 
@@ -422,7 +433,29 @@
   <!-- SETTINGS PAGE -->
   <div class="page" id="page-settings">
     <div class="page-header"><div class="page-title">Settings</div></div>
+<div class="section">
+      <div class="section-title">Appearance</div>
+      <div class="card" style="padding:0;overflow:hidden">
+        <div class="settings-row">
+          <div>
+            <div class="settings-label">Dark Mode</div>
+            <div class="settings-desc" id="theme-desc">Synced with system</div>
+          </div>
+          <div class="toggle" id="theme-toggle" onclick="toggleTheme()"><div class="toggle-knob"></div></div>
+        </div>
+      </div>
+    </div>
 
+    <div class="section">
+      <div class="section-title">Tags</div>
+      <p style="font-size:13px;color:var(--text3);padding:0 0 10px">These tags appear as options when adding an expense or income.</p>
+      <div class="card" style="padding:0;overflow:hidden" id="tags-settings-list"></div>
+      <div style="display:flex;gap:8px;margin-top:10px">
+        <input type="text" id="new-tag-input" placeholder="New tag name…" style="flex:1;background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius-sm);padding:10px 14px;color:var(--text);font-family:var(--font-body);font-size:14px;outline:none;">
+        <button class="btn btn-primary" onclick="addTagFromSettings()">Add</button>
+      </div>
+    </div>
+    
     <div class="section">
       <div class="section-title">Account</div>
       <div class="card" style="padding:0;overflow:hidden">
@@ -486,7 +519,7 @@
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M12 8v4l3 3"/><circle cx="12" cy="12" r="9"/></svg>
       History
     </button>
-    <button class="nav-fab" onclick="openDialModal()">
+    <button class="nav-fab" onclick="openEntryModal()">
       <div class="nav-fab-ring">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
       </div>
@@ -503,54 +536,6 @@
   </nav>
 </div>
 
-<!-- ── DIAL MODAL ── -->
-<div class="modal-overlay" id="dial-modal">
-  <div class="modal">
-    <div class="modal-handle"></div>
-    <div class="modal-header">
-      <span class="modal-title">Add Entry</span>
-      <button class="icon-btn" onclick="closeModal('dial-modal')">✕</button>
-    </div>
-    <div class="dial-container">
-      <div class="dial-type-row">
-        <button class="type-btn active-exp" id="dial-type-exp" onclick="setDialType('expense')">💸 Expense</button>
-        <button class="type-btn" id="dial-type-inc" onclick="setDialType('income')">💰 Income</button>
-      </div>
-      <div class="dial-display"><span class="currency">₹</span><span id="dial-amount-display">0</span></div>
-      <div class="dial-hint">Drag the arc to set amount • Tap digits for precision</div>
-      <div class="dial-svg-wrap" id="dial-wrap">
-        <svg viewBox="0 0 260 260" id="dial-svg">
-          <circle cx="130" cy="130" r="110" fill="none" stroke="var(--bg3)" stroke-width="18"/>
-          <circle cx="130" cy="130" r="110" fill="none" stroke="var(--accent)" stroke-width="18"
-            stroke-dasharray="691.15" stroke-dashoffset="691.15"
-            stroke-linecap="round" transform="rotate(-90 130 130)"
-            id="dial-arc" style="transition:stroke-dashoffset .05s linear"/>
-          <!-- tick marks -->
-          <g id="dial-ticks"></g>
-          <circle cx="130" cy="130" r="85" fill="var(--bg2)"/>
-          <!-- handle dot -->
-          <circle id="dial-handle" cx="130" cy="20" r="10" fill="var(--accent)" stroke="var(--bg2)" stroke-width="3"/>
-        </svg>
-        <div class="dial-center-info">
-          <div class="dial-step-label">Step</div>
-          <div class="dial-step-val" id="dial-step-display">₹1</div>
-        </div>
-      </div>
-      <div class="dial-step-btns">
-        <button class="step-btn active" onclick="setDialStep(1,this)">₹1</button>
-        <button class="step-btn" onclick="setDialStep(10,this)">₹10</button>
-        <button class="step-btn" onclick="setDialStep(100,this)">₹100</button>
-        <button class="step-btn" onclick="setDialStep(1000,this)">₹1K</button>
-        <button class="step-btn" onclick="setDialStep(5000,this)">₹5K</button>
-      </div>
-    </div>
-    <div class="dial-actions">
-      <button class="btn btn-ghost" style="flex:1" onclick="closeModal('dial-modal')">Cancel</button>
-      <button class="btn btn-primary" style="flex:2" onclick="proceedFromDial()">Next →</button>
-    </div>
-  </div>
-</div>
-
 <!-- ── ENTRY DETAIL MODAL ── -->
 <div class="modal-overlay" id="entry-modal">
   <div class="modal">
@@ -560,10 +545,13 @@
       <button class="icon-btn" onclick="closeModal('entry-modal')">✕</button>
     </div>
     <div class="modal-body">
-      <div style="display:flex;align-items:center;gap:12px;background:var(--bg3);border:1px solid var(--border);border-radius:var(--radius-sm);padding:10px 14px;">
-        <span style="font-size:13px;color:var(--text2)">Amount</span>
-        <span id="entry-amount-preview" style="font-family:var(--font-mono);font-size:22px;font-weight:500;flex:1"></span>
-        <button class="btn btn-sm btn-ghost" onclick="closeModal('entry-modal');openDialModal();">Edit</button>
+      <div class="type-toggle" style="margin-bottom:2px">
+        <button class="type-btn active-exp" id="entry-type-exp" onclick="setEntryType('expense')">💸 Expense</button>
+        <button class="type-btn" id="entry-type-inc" onclick="setEntryType('income')">💰 Income</button>
+      </div>
+      <div class="field">
+        <label>Amount (₹)</label>
+        <input type="number" id="entry-amount" placeholder="0.00" min="0" step="0.01" inputmode="decimal" style="font-family:var(--font-mono);font-size:22px;font-weight:500;letter-spacing:-.02em;">
       </div>
 
       <div class="field">
@@ -576,14 +564,22 @@
           <input type="date" id="entry-date">
         </div>
         <div class="field">
-          <label>Category</label>
-          <select id="entry-category"></select>
+          <label>Time</label>
+          <input type="time" id="entry-time">
         </div>
       </div>
       <div class="field">
+        <label>Category</label>
+        <select id="entry-category"></select>
+      </div>
+     <div class="field">
         <label>Tags</label>
-        <div class="tags-wrap" id="tags-wrap" onclick="document.getElementById('tags-hidden-input').focus()">
-          <input type="text" class="tags-input" id="tags-hidden-input" placeholder="Type tag + Enter…" onkeydown="handleTagInput(event)">
+        <div style="position:relative">
+          <div id="tags-wrap" style="display:flex;flex-wrap:wrap;gap:6px;padding:8px 10px;background:var(--bg3);border:1px solid var(--border);border-radius:var(--radius-sm);min-height:42px;cursor:pointer;" onclick="toggleTagDropdown()"></div>
+          <div id="tag-dropdown" style="display:none;position:absolute;top:100%;left:0;right:0;background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius-sm);z-index:50;max-height:200px;overflow-y:auto;margin-top:4px;box-shadow:var(--shadow)">
+            <div id="tag-dropdown-list"></div>
+            <div style="padding:8px 10px;border-top:1px solid var(--border);font-size:12px;color:var(--text3)">Manage tags in Settings → Tags</div>
+          </div>
         </div>
       </div>
       <div class="field">
@@ -726,39 +722,62 @@ const sanitize = (str) => {
   return str.replace(/[<>'"&]/g, c => ({'<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;','&':'&amp;'}[c]));
 };
 const safeText = (el, text) => { if(el) el.textContent = String(text ?? ''); };
-const safeHTML = (el, html) => {
-  // Only used internally for trusted template strings — never user input
-  if(el) el.innerHTML = html;
-};
+
+// ════════════════════════════════════════════
+// THEME
+// ════════════════════════════════════════════
+function initTheme() {
+  const stored = localStorage.getItem('spendly_theme');
+  const sysDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+  const isDark = stored ? stored === 'dark' : sysDark;
+  applyTheme(isDark, stored === null);
+  window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', e => {
+    if (localStorage.getItem('spendly_theme') === null) applyTheme(e.matches, true);
+  });
+}
+
+function applyTheme(isDark, isAuto) {
+  document.documentElement.classList.toggle('light', !isDark);
+  const toggle = document.getElementById('theme-toggle');
+  const desc = document.getElementById('theme-desc');
+  if (toggle) toggle.classList.toggle('on', isDark);
+  if (desc) safeText(desc, isAuto ? 'Synced with system' : (isDark ? 'Dark mode on' : 'Light mode on'));
+}
+
+function toggleTheme() {
+  const isCurrentlyDark = !document.documentElement.classList.contains('light');
+  const newDark = !isCurrentlyDark;
+  localStorage.setItem('spendly_theme', newDark ? 'dark' : 'light');
+  applyTheme(newDark, false);
+}
 
 // ════════════════════════════════════════════
 // STATE
 // ════════════════════════════════════════════
 let STATE = {
-  user: null,         // { id, name, email, picture, isAdmin }
-  viewingUserId: null,// for admin view
-  members: [],        // [ { id, name, email, picture } ]
-  data: {             // current viewed user's data
+  user: null,
+  viewingUserId: null,
+  members: [],
+  data: {
     transactions: [],
     categories: [],
     customFields: [],
+    tags: [],
     settings: {}
   },
   charts: {},
-  dialAmount: 0,
-  dialType: 'expense',
-  dialStep: 1,
+  entryType: 'expense',
   historyPeriod: 'month',
   reportPeriod: 'month',
   reportTab: 'category',
   activeTags: [],
   editingTxnId: null,
   selectedColor: '#7c6cfc',
-  cfType: 'text'
+  tagDropdownOpen: false,
 };
 
 // ════════════════════════════════════════════
-// DEFAULT CATEGORIES
+// DEFAULT DATA
 // ════════════════════════════════════════════
 const DEFAULT_CATS = [
   {id:'food',name:'Food & Dining',icon:'🍽️',color:'#ff5f7e'},
@@ -779,10 +798,12 @@ const DEFAULT_CATS = [
   {id:'other',name:'Other',icon:'📦',color:'#9090a8'},
 ];
 
+const DEFAULT_TAGS = ['Food','Travel','Work','Personal','Shopping','Bills','Health','Entertainment','Family','EMI'];
+
 // ════════════════════════════════════════════
-// GOOGLE OAUTH (GSI)
+// GOOGLE OAUTH
 // ════════════════════════════════════════════
-const GOOGLE_CLIENT_ID = '1056853638242-dpf1lli4pmtm58m8rhji42obqsrn12n6.apps.googleusercontent.com'; // REPLACE THIS
+const GOOGLE_CLIENT_ID = 'YOUR_GOOGLE_CLIENT_ID';
 const DRIVE_SCOPE = 'https://www.googleapis.com/auth/drive.appdata email profile openid';
 let accessToken = null;
 
@@ -791,12 +812,12 @@ function loadGSI() {
     const s = document.createElement('script');
     s.src = 'https://accounts.google.com/gsi/client';
     s.onload = res;
-    s.onerror = () => { showToast('Failed to load Google Sign-In'); };
+    s.onerror = () => showToast('Failed to load Google Sign-In');
     document.head.appendChild(s);
   });
 }
 
-async function signIn() {
+window.signIn = async function() {
   await loadGSI();
   google.accounts.oauth2.initTokenClient({
     client_id: GOOGLE_CLIENT_ID,
@@ -804,13 +825,14 @@ async function signIn() {
     callback: async (resp) => {
       if (resp.error) { showToast('Sign-in failed: ' + sanitize(resp.error)); return; }
       accessToken = resp.access_token;
+      sessionStorage.setItem('spendly_token', accessToken);
       showLoading();
       await fetchUserProfile();
       await loadUserData();
       showApp();
     }
   }).requestAccessToken();
-}
+};
 
 async function fetchUserProfile() {
   const r = await fetch('https://www.googleapis.com/oauth2/v3/userinfo', {
@@ -818,13 +840,9 @@ async function fetchUserProfile() {
   });
   if (!r.ok) throw new Error('Profile fetch failed');
   const p = await r.json();
-  // Determine admin: first user ever, or stored in data
   const storedAdmin = localStorage.getItem('spendly_admin_id');
   STATE.user = {
-    id: p.sub,
-    name: p.name || '',
-    email: p.email || '',
-    picture: p.picture || '',
+    id: p.sub, name: p.name || '', email: p.email || '', picture: p.picture || '',
     isAdmin: !storedAdmin || storedAdmin === p.sub
   };
   if (!storedAdmin) localStorage.setItem('spendly_admin_id', p.sub);
@@ -832,15 +850,15 @@ async function fetchUserProfile() {
 
 function signOut() {
   if (!confirm('Sign out of Spendly?')) return;
-  accessToken = null;
-  STATE.user = null;
-  STATE.data = { transactions:[], categories:[], customFields:[], settings:{} };
+  accessToken = null; STATE.user = null;
+  sessionStorage.removeItem('spendly_token');
+  STATE.data = { transactions:[], categories:[], customFields:[], tags:[], settings:{} };
   document.getElementById('app').style.display = 'none';
   document.getElementById('login-screen').classList.add('active');
 }
 
 // ════════════════════════════════════════════
-// GOOGLE DRIVE (appDataFolder = private, per-user)
+// GOOGLE DRIVE
 // ════════════════════════════════════════════
 const DRIVE_FILE_NAME = 'spendly_data.json';
 
@@ -852,9 +870,7 @@ async function driveRequest(url, opts={}) {
 }
 
 async function findDriveFile() {
-  const r = await driveRequest(
-    `https://www.googleapis.com/drive/v3/files?spaces=appDataFolder&q=name='${DRIVE_FILE_NAME}'&fields=files(id,name,modifiedTime)`
-  );
+  const r = await driveRequest(`https://www.googleapis.com/drive/v3/files?spaces=appDataFolder&q=name='${DRIVE_FILE_NAME}'&fields=files(id,name,modifiedTime)`);
   const d = await r.json();
   return d.files && d.files.length ? d.files[0] : null;
 }
@@ -867,8 +883,7 @@ async function readDriveFile(fileId) {
 
 async function writeDriveFile(data) {
   const existing = await findDriveFile();
-  const body = JSON.stringify(data);
-  const blob = new Blob([body], { type: 'application/json' });
+  const blob = new Blob([JSON.stringify(data)], { type: 'application/json' });
   const form = new FormData();
   const meta = { name: DRIVE_FILE_NAME, parents: existing ? undefined : ['appDataFolder'] };
   form.append('metadata', new Blob([JSON.stringify(meta)], { type: 'application/json' }));
@@ -876,11 +891,11 @@ async function writeDriveFile(data) {
   const url = existing
     ? `https://www.googleapis.com/upload/drive/v3/files/${existing.id}?uploadType=multipart`
     : 'https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart';
-  const method = existing ? 'PATCH' : 'POST';
-  const r = await driveRequest(url, { method, body: form });
+  const r = await driveRequest(url, { method: existing ? 'PATCH' : 'POST', body: form });
   if (!r.ok) throw new Error('Drive write failed');
   localStorage.setItem('spendly_last_sync', new Date().toISOString());
-  document.getElementById('last-sync').textContent = formatSyncTime(new Date());
+  const el = document.getElementById('last-sync');
+  if (el) safeText(el, formatSyncTime(new Date()));
 }
 
 function formatSyncTime(d) {
@@ -891,43 +906,29 @@ async function loadUserData() {
   const file = await findDriveFile();
   if (file) {
     const d = await readDriveFile(file.id);
-    if (d && d.transactions) {
-      STATE.data = { ...STATE.data, ...d };
-    }
+    if (d && d.transactions) STATE.data = { ...STATE.data, ...d };
   }
-  if (!STATE.data.categories || !STATE.data.categories.length) {
-    STATE.data.categories = JSON.parse(JSON.stringify(DEFAULT_CATS));
-  }
+  if (!STATE.data.categories || !STATE.data.categories.length) STATE.data.categories = JSON.parse(JSON.stringify(DEFAULT_CATS));
   if (!STATE.data.customFields) STATE.data.customFields = [];
   if (!STATE.data.transactions) STATE.data.transactions = [];
   if (!STATE.data.members) STATE.data.members = [];
+  if (!STATE.data.tags || !STATE.data.tags.length) STATE.data.tags = [...DEFAULT_TAGS];
   STATE.viewingUserId = STATE.user.id;
   const ls = localStorage.getItem('spendly_last_sync');
-  if (ls) document.getElementById('last-sync').textContent = formatSyncTime(new Date(ls));
+  if (ls) { const el = document.getElementById('last-sync'); if(el) safeText(el, formatSyncTime(new Date(ls))); }
 }
 
 async function saveData() {
-  try {
-    await writeDriveFile(STATE.data);
-  } catch(e) {
-    showToast('⚠️ Sync failed — data saved locally');
-    // Still save to localStorage as fallback
-    localStorage.setItem('spendly_local_backup', JSON.stringify(STATE.data));
-  }
+  try { await writeDriveFile(STATE.data); }
+  catch(e) { showToast('⚠️ Sync failed — check connection'); localStorage.setItem('spendly_local_backup', JSON.stringify(STATE.data)); }
 }
 
-async function syncToDrive() {
-  showToast('Syncing…');
-  await saveData();
-  showToast('✅ Synced to Google Drive');
-}
+async function syncToDrive() { showToast('Syncing…'); await saveData(); showToast('✅ Synced to Google Drive'); }
 
 function exportJSON() {
   const blob = new Blob([JSON.stringify(STATE.data, null, 2)], { type: 'application/json' });
   const a = document.createElement('a');
-  a.href = URL.createObjectURL(blob);
-  a.download = `spendly_backup_${new Date().toISOString().slice(0,10)}.json`;
-  a.click();
+  a.href = URL.createObjectURL(blob); a.download = `spendly_backup_${new Date().toISOString().slice(0,10)}.json`; a.click();
 }
 
 // ════════════════════════════════════════════
@@ -958,12 +959,9 @@ function updateUserUI() {
   safeText(initEl, u.name ? u.name[0].toUpperCase() : '?');
   if (u.picture) {
     const img = document.getElementById('dash-avatar-img');
-    img.src = u.picture;
-    img.style.display = 'block';
-    initEl.style.display = 'none';
+    img.src = u.picture; img.style.display = 'block'; initEl.style.display = 'none';
     const sImg = document.getElementById('settings-avatar');
-    sImg.src = u.picture;
-    sImg.style.display = 'block';
+    sImg.src = u.picture; sImg.style.display = 'block';
   }
   const hour = new Date().getHours();
   const greeting = hour < 12 ? 'Good morning' : hour < 17 ? 'Good afternoon' : 'Good evening';
@@ -992,19 +990,10 @@ function getDateRange(period) {
   const now = new Date();
   const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
   if (period === 'today') return [today, new Date(today.getTime() + 86399999)];
-  if (period === 'week') {
-    const d = new Date(today); d.setDate(d.getDate() - d.getDay());
-    return [d, new Date(d.getTime() + 7*86400000 - 1)];
-  }
-  if (period === 'month') {
-    return [new Date(now.getFullYear(), now.getMonth(), 1), new Date(now.getFullYear(), now.getMonth()+1, 0, 23, 59, 59)];
-  }
-  if (period === 'last') {
-    return [new Date(now.getFullYear(), now.getMonth()-1, 1), new Date(now.getFullYear(), now.getMonth(), 0, 23,59,59)];
-  }
-  if (period === 'year') {
-    return [new Date(now.getFullYear(), 0, 1), new Date(now.getFullYear(), 11, 31, 23,59,59)];
-  }
+  if (period === 'week') { const d = new Date(today); d.setDate(d.getDate() - d.getDay()); return [d, new Date(d.getTime() + 7*86400000 - 1)]; }
+  if (period === 'month') return [new Date(now.getFullYear(), now.getMonth(), 1), new Date(now.getFullYear(), now.getMonth()+1, 0, 23,59,59)];
+  if (period === 'last') return [new Date(now.getFullYear(), now.getMonth()-1, 1), new Date(now.getFullYear(), now.getMonth(), 0, 23,59,59)];
+  if (period === 'year') return [new Date(now.getFullYear(), 0, 1), new Date(now.getFullYear(), 11, 31, 23,59,59)];
   return [new Date(0), new Date()];
 }
 
@@ -1012,7 +1001,7 @@ function filterTxns(period, type=null) {
   const [s,e] = getDateRange(period);
   return STATE.data.transactions.filter(t => {
     const d = new Date(t.date);
-    return d >= s && d <= e && (!type || t.type === type);
+    return d >= s && d <= e && (type === null || t.type === type);
   });
 }
 
@@ -1024,62 +1013,90 @@ function generateId() {
   return Date.now().toString(36) + Math.random().toString(36).slice(2,7);
 }
 
+function getNowDateTimeLocal() {
+  const now = new Date();
+  const pad = n => String(n).padStart(2,'0');
+  return {
+    date: `${now.getFullYear()}-${pad(now.getMonth()+1)}-${pad(now.getDate())}`,
+    time: `${pad(now.getHours())}:${pad(now.getMinutes())}`
+  };
+}
+
 // ════════════════════════════════════════════
 // DASHBOARD
 // ════════════════════════════════════════════
 function renderDashboard() {
-  const expenses = filterTxns('month','expense');
-  const incomes = filterTxns('month','income');
-  const todayExp = filterTxns('today','expense');
+  const expenses  = filterTxns('month', 'expense');
+  const incomes   = filterTxns('month', 'income');
+  const todayExp  = filterTxns('today', 'expense');
 
-  const totalExp = expenses.reduce((s,t)=>s+t.amount,0);
-  const totalInc = incomes.reduce((s,t)=>s+t.amount,0);
-  const savings = totalInc - totalExp;
-  const todayTotal = todayExp.reduce((s,t)=>s+t.amount,0);
+  const totalExp  = expenses.reduce((s,t) => s + Number(t.amount), 0);
+  const totalInc  = incomes.reduce((s,t)  => s + Number(t.amount), 0);
+  const savings   = totalInc - totalExp;
+  const todayTotal = todayExp.reduce((s,t) => s + Number(t.amount), 0);
 
-  // Last month comparison
-  const lastExpenses = filterTxns('last','expense');
-  const lastTotal = lastExpenses.reduce((s,t)=>s+t.amount,0);
-  const delta = lastTotal ? ((totalExp - lastTotal)/lastTotal*100).toFixed(0) : null;
+  const lastExpenses = filterTxns('last', 'expense');
+  const lastTotal    = lastExpenses.reduce((s,t) => s + Number(t.amount), 0);
+  const delta = lastTotal > 0 ? ((totalExp - lastTotal) / lastTotal * 100).toFixed(0) : null;
 
   safeText(document.getElementById('sum-month-spend'), fmt(totalExp));
   safeText(document.getElementById('sum-month-income'), fmt(totalInc));
-  safeText(document.getElementById('sum-savings'), fmt(savings));
+  safeText(document.getElementById('sum-savings'), savings >= 0 ? fmt(savings) : '-' + fmt(Math.abs(savings)));
   safeText(document.getElementById('sum-today'), fmt(todayTotal));
+
+  // Savings colour: green if positive, red if negative, grey if zero
+  const savingsEl = document.getElementById('sum-savings');
+  savingsEl.className = 'summary-value ' + (savings > 0 ? 'green' : savings < 0 ? 'red' : 'accent');
 
   const deltaEl = document.getElementById('sum-month-delta');
   if (delta !== null) {
-    safeText(deltaEl, (delta > 0 ? '▲' : '▼') + ' ' + Math.abs(delta) + '% vs last month');
-    deltaEl.style.color = delta > 0 ? 'var(--red)' : 'var(--green)';
-  }
+    safeText(deltaEl, (Number(delta) > 0 ? '▲ ' : '▼ ') + Math.abs(delta) + '% vs last month');
+    deltaEl.style.color = Number(delta) > 0 ? 'var(--red)' : 'var(--green)';
+  } else { safeText(deltaEl, 'First month tracked'); deltaEl.style.color = 'var(--text3)'; }
 
-  renderDonut(expenses);
-  renderTopCats(expenses);
-  renderBarChart();
-  renderInsights(expenses, incomes);
+  const hasData = STATE.data.transactions.length > 0;
+
+  renderDonut(expenses, hasData);
+  renderTopCats(expenses, hasData);
+  renderBarChart(hasData);
+  renderInsights(expenses, incomes, hasData);
   renderRecentTxns();
 }
 
-function renderDonut(expenses) {
-  const bycat = {};
-  expenses.forEach(t => { bycat[t.category] = (bycat[t.category]||0) + t.amount; });
-  const cats = Object.entries(bycat).sort((a,b)=>b[1]-a[1]).slice(0,6);
-  const labels = cats.map(([id]) => getCat(id).name);
-  const data = cats.map(([,v])=>v);
-  const colors = cats.map(([id])=>getCat(id).color);
-  const total = data.reduce((s,v)=>s+v,0);
+// ── NO DATA placeholder ──
+function noDataPlaceholder(message) {
+  return `<div style="display:flex;flex-direction:column;align-items:center;justify-content:center;padding:32px 16px;gap:10px;text-align:center;">
+    <div style="font-size:52px;opacity:.35">📊</div>
+    <div style="font-size:13px;color:var(--text3)">${sanitize(message)}</div>
+  </div>`;
+}
 
-  if (STATE.charts.donut) STATE.charts.donut.destroy();
-  const ctx = document.getElementById('donut-chart').getContext('2d');
+function renderDonut(expenses, hasData) {
+  const el = document.getElementById('donut-chart').parentElement;
+  if (STATE.charts.donut) { STATE.charts.donut.destroy(); STATE.charts.donut = null; }
+
+  if (!hasData || !expenses.length) {
+    el.parentElement.innerHTML = noDataPlaceholder('No expenses this month yet');
+    el.parentElement.id = 'donut-placeholder';
+    return;
+  }
+
+  const bycat = {};
+  expenses.forEach(t => { bycat[t.category] = (bycat[t.category]||0) + Number(t.amount); });
+  const cats = Object.entries(bycat).sort((a,b)=>b[1]-a[1]).slice(0,6);
+  const total = cats.reduce((s,[,v])=>s+v, 0);
+
+  const ctx = document.getElementById('donut-chart')?.getContext('2d');
+  if (!ctx) return;
   STATE.charts.donut = new Chart(ctx, {
     type:'doughnut',
-    data:{ labels, datasets:[{ data, backgroundColor:colors, borderWidth:0, hoverOffset:6 }] },
-    options:{ cutout:'72%', plugins:{ legend:{ display:false }, tooltip:{ callbacks:{ label: c => ' '+fmt(c.raw) } } } }
+    data:{ labels: cats.map(([id])=>getCat(id).name), datasets:[{ data: cats.map(([,v])=>v), backgroundColor: cats.map(([id])=>getCat(id).color), borderWidth:0, hoverOffset:6 }] },
+    options:{ cutout:'72%', plugins:{ legend:{display:false}, tooltip:{callbacks:{label:c=>' '+fmt(c.raw)}} } }
   });
-
   safeText(document.getElementById('donut-center'), fmt(total));
 
   const legend = document.getElementById('category-legend');
+  if (!legend) return;
   legend.innerHTML = '';
   cats.slice(0,5).forEach(([id,val]) => {
     const cat = getCat(id);
@@ -1091,100 +1108,103 @@ function renderDonut(expenses) {
   });
 }
 
-function renderTopCats(expenses) {
-  const bycat = {};
-  expenses.forEach(t => { bycat[t.category] = (bycat[t.category]||0) + t.amount; });
-  const total = Object.values(bycat).reduce((s,v)=>s+v,0);
-  const top = Object.entries(bycat).sort((a,b)=>b[1]-a[1]).slice(0,5);
+function renderTopCats(expenses, hasData) {
   const el = document.getElementById('top-cats');
+  if (!hasData || !expenses.length) { el.innerHTML = noDataPlaceholder('Add expenses to see category breakdown'); return; }
+  const bycat = {};
+  expenses.forEach(t => { bycat[t.category] = (bycat[t.category]||0) + Number(t.amount); });
+  const total = Object.values(bycat).reduce((s,v)=>s+v, 0);
+  const top = Object.entries(bycat).sort((a,b)=>b[1]-a[1]).slice(0,5);
   el.innerHTML = '';
-  if (!top.length) { el.innerHTML = '<div class="empty-state" style="padding:20px"><div class="empty-desc">No expenses this month</div></div>'; return; }
   top.forEach(([id,val]) => {
     const cat = getCat(id);
     const pct = total ? Math.round(val/total*100) : 0;
-    const row = document.createElement('div');
-    row.className = 'prog-row';
+    const row = document.createElement('div'); row.className = 'prog-row';
     row.innerHTML = `<div class="prog-label"><div class="prog-label-name"><span>${sanitize(cat.icon)}</span><span>${sanitize(cat.name)}</span></div><span style="font-family:var(--font-mono);font-size:13px">${fmt(val)}</span></div><div class="prog-bar-bg"><div class="prog-bar-fill" style="width:${pct}%;background:${cat.color}"></div></div>`;
     el.appendChild(row);
   });
 }
 
-function renderBarChart() {
+function renderBarChart(hasData) {
+  const el = document.getElementById('bar-chart');
+  if (!el) return;
+  if (STATE.charts.bar) { STATE.charts.bar.destroy(); STATE.charts.bar = null; }
+  if (!hasData) { el.parentElement.innerHTML = noDataPlaceholder('Daily trend will appear here'); return; }
+
   const now = new Date();
   const days = new Date(now.getFullYear(), now.getMonth()+1, 0).getDate();
   const labels = [], data = [];
   for (let d=1; d<=days; d++) {
     labels.push(d);
-    const dayExp = STATE.data.transactions.filter(t => {
-      const td = new Date(t.date);
-      return t.type==='expense' && td.getFullYear()===now.getFullYear() && td.getMonth()===now.getMonth() && td.getDate()===d;
-    });
-    data.push(dayExp.reduce((s,t)=>s+t.amount,0));
+    const dayTotal = STATE.data.transactions
+      .filter(t => { const td = new Date(t.date); return t.type==='expense' && td.getFullYear()===now.getFullYear() && td.getMonth()===now.getMonth() && td.getDate()===d; })
+      .reduce((s,t) => s + Number(t.amount), 0);
+    data.push(dayTotal);
   }
-  if (STATE.charts.bar) STATE.charts.bar.destroy();
-  const ctx = document.getElementById('bar-chart').getContext('2d');
+  const ctx = document.getElementById('bar-chart')?.getContext('2d');
+  if (!ctx) return;
   STATE.charts.bar = new Chart(ctx, {
     type:'bar',
     data:{ labels, datasets:[{ data, backgroundColor:'rgba(124,108,252,.5)', borderRadius:4, borderSkipped:false }] },
-    options:{ plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>' '+fmt(c.raw)}}}, scales:{ x:{grid:{display:false},ticks:{color:'#5a5a72',font:{size:10}}}, y:{grid:{color:'rgba(255,255,255,.04)'},ticks:{color:'#5a5a72',font:{size:10},callback:v=>v?fmt(v):''}} }, maintainAspectRatio:true }
+    options:{ plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>' '+fmt(c.raw)}}}, scales:{ x:{grid:{display:false},ticks:{color:'var(--text3)',font:{size:10}}}, y:{grid:{color:'rgba(128,128,128,.1)'},ticks:{color:'var(--text3)',font:{size:10},callback:v=>v?fmt(v):''}} }, maintainAspectRatio:true }
   });
 }
 
-function renderInsights(expenses, incomes) {
+function renderInsights(expenses, incomes, hasData) {
   const el = document.getElementById('insights-list');
-  el.innerHTML = '';
-  const insights = [];
+  if (!hasData) { el.innerHTML = `<div class="insight-card"><div class="insight-icon">💡</div><div class="insight-text">Start adding expenses and income to see smart insights here.</div></div>`; return; }
 
-  const totalExp = expenses.reduce((s,t)=>s+t.amount,0);
-  const lastExp = filterTxns('last','expense').reduce((s,t)=>s+t.amount,0);
-  if (lastExp && totalExp > lastExp) {
+  const insights = [];
+  const totalExp = expenses.reduce((s,t)=>s+Number(t.amount),0);
+  const lastExp  = filterTxns('last','expense').reduce((s,t)=>s+Number(t.amount),0);
+
+  if (lastExp > 0 && totalExp > lastExp) {
     const pct = Math.round((totalExp-lastExp)/lastExp*100);
-    insights.push({ icon:'📈', text:`You've spent <strong>${pct}% more</strong> than last month so far.` });
+    insights.push({icon:'📈', text:`You've spent <strong>${pct}% more</strong> than last month so far.`});
   }
 
   const bycat = {};
-  expenses.forEach(t => { bycat[t.category] = (bycat[t.category]||0)+t.amount; });
+  expenses.forEach(t => { bycat[t.category] = (bycat[t.category]||0)+Number(t.amount); });
   const topCat = Object.entries(bycat).sort((a,b)=>b[1]-a[1])[0];
   if (topCat) {
     const cat = getCat(topCat[0]);
-    insights.push({ icon: sanitize(cat.icon), text: `Your biggest category this month is <strong>${sanitize(cat.name)}</strong> at ${fmt(topCat[1])}.` });
+    insights.push({icon: cat.icon, text:`Your biggest category this month is <strong>${sanitize(cat.name)}</strong> at ${fmt(topCat[1])}.`});
   }
 
-  const totalInc = incomes.reduce((s,t)=>s+t.amount,0);
-  if (totalInc) {
-    const rate = Math.round((totalInc - totalExp)/totalInc * 100);
-    insights.push({ icon: rate >= 0 ? '💚' : '⚠️', text: rate >= 0 ? `You're saving <strong>${rate}%</strong> of your income this month.` : `You're <strong>spending more than you earn</strong> this month.` });
+  const totalInc = incomes.reduce((s,t)=>s+Number(t.amount),0);
+  if (totalInc > 0) {
+    const rate = Math.round((totalInc-totalExp)/totalInc*100);
+    insights.push({icon: rate>=0?'💚':'⚠️', text: rate>=0 ? `You're saving <strong>${rate}%</strong> of your income this month.` : `You're <strong>spending more than you earn</strong> this month.`});
   }
 
-  insights.slice(0,3).forEach(i => {
-    const card = document.createElement('div');
-    card.className = 'insight-card';
+  if (!insights.length) insights.push({icon:'✅', text:`You've spent ${fmt(totalExp)} this month. Keep tracking!`});
+
+  el.innerHTML = '';
+  insights.forEach(i => {
+    const card = document.createElement('div'); card.className = 'insight-card';
     card.innerHTML = `<div class="insight-icon">${i.icon}</div><div class="insight-text">${i.text}</div>`;
     el.appendChild(card);
   });
-
-  if (!insights.length) el.innerHTML = '<div class="insight-card"><div class="insight-icon">💡</div><div class="insight-text">Add some entries to see insights here.</div></div>';
 }
 
 function renderRecentTxns() {
   const recent = [...STATE.data.transactions].sort((a,b) => new Date(b.date)-new Date(a.date)).slice(0,10);
   const el = document.getElementById('recent-txns');
   el.innerHTML = '';
-  if (!recent.length) { el.innerHTML = '<div class="empty-state" style="padding:24px"><div class="empty-icon">📭</div><div class="empty-title">No entries yet</div><div class="empty-desc">Tap + to log your first expense</div></div>'; return; }
+  if (!recent.length) { el.innerHTML = `<div style="display:flex;flex-direction:column;align-items:center;padding:32px 16px;gap:10px;text-align:center"><div style="font-size:48px;opacity:.3">📭</div><div style="font-size:13px;color:var(--text3)">No entries yet — tap + to add your first</div></div>`; return; }
   recent.forEach(t => el.appendChild(makeTxnRow(t)));
 }
 
 function makeTxnRow(t) {
   const cat = getCat(t.category);
   const div = document.createElement('div');
-  div.className = 'txn-item';
-  div.onclick = () => openTxnDetail(t.id);
-  const tags = (t.tags||[]).map(tag => `<span class="txn-tag">${sanitize(tag)}</span>`).join('');
-  div.innerHTML = `
-    <div class="txn-icon" style="background:${cat.color}22">${sanitize(cat.icon)}</div>
+  div.className = 'txn-item'; div.onclick = () => openTxnDetail(t.id);
+  const tags = (t.tags||[]).map(tag=>`<span class="txn-tag">${sanitize(tag)}</span>`).join('');
+  const timeStr = t.time ? ` · ${t.time}` : '';
+  div.innerHTML = `<div class="txn-icon" style="background:${cat.color}22">${sanitize(cat.icon)}</div>
     <div class="txn-info">
       <div class="txn-title">${sanitize(t.title||'Untitled')}</div>
-      <div class="txn-meta"><span>${sanitize(cat.name)}</span>${tags}</div>
+      <div class="txn-meta"><span>${sanitize(cat.name)}${timeStr}</span>${tags}</div>
     </div>
     <div class="txn-amount ${t.type==='expense'?'exp':'inc'}">${t.type==='expense'?'−':'+'} ${fmt(t.amount)}</div>`;
   return div;
@@ -1194,33 +1214,22 @@ function makeTxnRow(t) {
 // HISTORY
 // ════════════════════════════════════════════
 function setHistoryFilter(el, period) {
-  document.querySelectorAll('.filter-pill').forEach(p => p.classList.remove('active'));
-  el.classList.add('active');
-  STATE.historyPeriod = period;
-  renderHistory();
+  document.querySelectorAll('#history-filter-bar .filter-pill').forEach(p=>p.classList.remove('active'));
+  el.classList.add('active'); STATE.historyPeriod = period; renderHistory();
 }
 
 function renderHistory() {
-  const q = (document.getElementById('history-search-input')?.value || '').toLowerCase();
+  const q = (document.getElementById('history-search-input')?.value||'').toLowerCase();
   const [s,e] = getDateRange(STATE.historyPeriod);
-  let txns = STATE.data.transactions.filter(t => {
-    const d = new Date(t.date);
-    return d >= s && d <= e;
-  });
-  if (q) txns = txns.filter(t => (t.title||'').toLowerCase().includes(q) || (t.notes||'').toLowerCase().includes(q) || (t.tags||[]).some(tag => tag.toLowerCase().includes(q)));
-  txns.sort((a,b) => new Date(b.date)-new Date(a.date));
-
-  const el = document.getElementById('history-list');
-  el.innerHTML = '';
-  if (!txns.length) { el.innerHTML = '<div class="empty-state"><div class="empty-icon">🔍</div><div class="empty-title">No transactions found</div></div>'; return; }
-
-  let lastDate = '';
+  let txns = STATE.data.transactions.filter(t => { const d=new Date(t.date); return d>=s && d<=e; });
+  if (q) txns = txns.filter(t => (t.title||'').toLowerCase().includes(q)||(t.notes||'').toLowerCase().includes(q)||(t.tags||[]).some(tag=>tag.toLowerCase().includes(q)));
+  txns.sort((a,b)=>new Date(b.date)-new Date(a.date));
+  const el = document.getElementById('history-list'); el.innerHTML='';
+  if (!txns.length) { el.innerHTML=`<div class="empty-state"><div class="empty-icon">🔍</div><div class="empty-title">No transactions found</div></div>`; return; }
+  let lastDate='';
   txns.forEach(t => {
     const ds = new Date(t.date).toLocaleDateString('en-IN',{weekday:'short',day:'numeric',month:'short'});
-    if (ds !== lastDate) {
-      const dh = document.createElement('div'); dh.className = 'date-group-header'; safeText(dh, ds);
-      el.appendChild(dh); lastDate = ds;
-    }
+    if (ds!==lastDate) { const dh=document.createElement('div'); dh.className='date-group-header'; safeText(dh,ds); el.appendChild(dh); lastDate=ds; }
     el.appendChild(makeTxnRow(t));
   });
 }
@@ -1228,413 +1237,204 @@ function renderHistory() {
 // ════════════════════════════════════════════
 // REPORTS
 // ════════════════════════════════════════════
-function setReportPeriod(el, period) {
-  document.querySelectorAll('[data-rp]').forEach(e => e.classList.remove('active'));
-  el.classList.add('active');
-  STATE.reportPeriod = period;
-  renderReports();
-}
-
-function setReportTab(el, tab) {
-  document.querySelectorAll('.report-tab').forEach(e => e.classList.remove('active'));
-  el.classList.add('active');
-  STATE.reportTab = tab;
-  renderReports();
-}
+function setReportPeriod(el,period) { document.querySelectorAll('[data-rp]').forEach(e=>e.classList.remove('active')); el.classList.add('active'); STATE.reportPeriod=period; renderReports(); }
+function setReportTab(el,tab) { document.querySelectorAll('.report-tab').forEach(e=>e.classList.remove('active')); el.classList.add('active'); STATE.reportTab=tab; renderReports(); }
 
 function renderReports() {
-  const expenses = filterTxns(STATE.reportPeriod, 'expense');
-  const incomes = filterTxns(STATE.reportPeriod, 'income');
+  const expenses = filterTxns(STATE.reportPeriod,'expense');
+  const incomes  = filterTxns(STATE.reportPeriod,'income');
   const el = document.getElementById('report-content');
-
-  if (STATE.reportTab === 'category') renderCatReport(el, expenses);
-  else if (STATE.reportTab === 'tag') renderTagReport(el, expenses);
-  else if (STATE.reportTab === 'monthly') renderMonthlyReport(el);
-  else if (STATE.reportTab === 'payment') renderPaymentReport(el, expenses, incomes);
+  if (STATE.reportTab==='category') renderCatReport(el,expenses);
+  else if (STATE.reportTab==='tag') renderTagReport(el,expenses);
+  else if (STATE.reportTab==='monthly') renderMonthlyReport(el);
+  else if (STATE.reportTab==='payment') renderPaymentReport(el,expenses,incomes);
 }
 
 function buildReportTable(headers, rows) {
-  const table = document.createElement('table');
-  table.className = 'report-table';
+  const table = document.createElement('table'); table.className='report-table';
   const thead = document.createElement('thead');
-  thead.innerHTML = '<tr>' + headers.map(h => `<th>${sanitize(h)}</th>`).join('') + '</tr>';
+  thead.innerHTML = '<tr>'+headers.map(h=>`<th>${sanitize(h)}</th>`).join('')+'</tr>';
   const tbody = document.createElement('tbody');
-  rows.forEach(row => {
-    const tr = document.createElement('tr');
-    tr.innerHTML = row.map((cell,i) => `<td>${i===0 ? cell : sanitize(String(cell))}</td>`).join('');
-    tbody.appendChild(tr);
-  });
-  table.appendChild(thead); table.appendChild(tbody);
-  return table;
+  rows.forEach(row => { const tr=document.createElement('tr'); tr.innerHTML=row.map((cell,i)=>`<td>${i===0?cell:sanitize(String(cell))}</td>`).join(''); tbody.appendChild(tr); });
+  table.appendChild(thead); table.appendChild(tbody); return table;
 }
 
-function renderCatReport(el, expenses) {
-  const bycat = {};
-  expenses.forEach(t => { bycat[t.category] = (bycat[t.category]||0)+t.amount; });
-  const total = Object.values(bycat).reduce((s,v)=>s+v,0);
-  const sorted = Object.entries(bycat).sort((a,b)=>b[1]-a[1]);
-  el.innerHTML = `<div class="card" style="margin-bottom:12px;padding:12px"><canvas id="report-cat-chart" height="180"></canvas></div>`;
-  const tableWrap = document.createElement('div'); tableWrap.className = 'card'; tableWrap.style.padding = '0';
-  const rows = sorted.map(([id,val]) => {
-    const cat = getCat(id);
-    const pct = total ? Math.round(val/total*100) : 0;
-    return [`<span style="display:flex;align-items:center;gap:6px"><span>${sanitize(cat.icon)}</span><span>${sanitize(cat.name)}</span></span>`, fmt(val), pct+'%'];
-  });
-  tableWrap.appendChild(buildReportTable(['Category','Amount','Share'], rows));
-  el.appendChild(tableWrap);
-  setTimeout(() => {
-    const ctx = document.getElementById('report-cat-chart')?.getContext('2d');
-    if (!ctx) return;
-    if (STATE.charts.repCat) STATE.charts.repCat.destroy();
-    STATE.charts.repCat = new Chart(ctx, {
-      type:'bar', data:{ labels:sorted.map(([id])=>getCat(id).name), datasets:[{ data:sorted.map(([,v])=>v), backgroundColor:sorted.map(([id])=>getCat(id).color+'99'), borderRadius:6 }] },
-      options:{ plugins:{legend:{display:false}}, scales:{ x:{ticks:{color:'#5a5a72',font:{size:10}}}, y:{ticks:{color:'#5a5a72',font:{size:10},callback:v=>fmt(v)}} }, maintainAspectRatio:false }
-    });
-  },50);
+function renderCatReport(el,expenses) {
+  const bycat={};
+  expenses.forEach(t=>{bycat[t.category]=(bycat[t.category]||0)+Number(t.amount);});
+  const total=Object.values(bycat).reduce((s,v)=>s+v,0);
+  const sorted=Object.entries(bycat).sort((a,b)=>b[1]-a[1]);
+  if (!sorted.length) { el.innerHTML=noDataPlaceholder('No expenses in this period'); return; }
+  el.innerHTML=`<div class="card" style="margin-bottom:12px;padding:12px"><canvas id="report-cat-chart" height="180"></canvas></div>`;
+  const tw=document.createElement('div'); tw.className='card'; tw.style.padding='0';
+  tw.appendChild(buildReportTable(['Category','Amount','Share'], sorted.map(([id,val])=>{const cat=getCat(id);const pct=total?Math.round(val/total*100):0;return[`<span style="display:flex;align-items:center;gap:6px"><span>${sanitize(cat.icon)}</span><span>${sanitize(cat.name)}</span></span>`,fmt(val),pct+'%'];})));
+  el.appendChild(tw);
+  setTimeout(()=>{const ctx=document.getElementById('report-cat-chart')?.getContext('2d');if(!ctx)return;if(STATE.charts.repCat)STATE.charts.repCat.destroy();STATE.charts.repCat=new Chart(ctx,{type:'bar',data:{labels:sorted.map(([id])=>getCat(id).name),datasets:[{data:sorted.map(([,v])=>v),backgroundColor:sorted.map(([id])=>getCat(id).color+'99'),borderRadius:6}]},options:{plugins:{legend:{display:false}},scales:{x:{ticks:{color:'var(--text3)',font:{size:10}}},y:{ticks:{color:'var(--text3)',font:{size:10},callback:v=>fmt(v)}}},maintainAspectRatio:false}});},50);
 }
 
-function renderTagReport(el, expenses) {
-  const bytag = {};
-  expenses.forEach(t => (t.tags||[]).forEach(tag => { bytag[tag] = (bytag[tag]||0)+t.amount; }));
-  const sorted = Object.entries(bytag).sort((a,b)=>b[1]-a[1]);
-  el.innerHTML = '';
-  if (!sorted.length) { el.innerHTML = '<div class="empty-state"><div class="empty-desc">No tagged transactions in this period</div></div>'; return; }
-  const tableWrap = document.createElement('div'); tableWrap.className = 'card'; tableWrap.style.padding = '0';
-  const rows = sorted.map(([tag,val]) => [`<span class="tag-chip">${sanitize(tag)}</span>`, fmt(val), STATE.data.transactions.filter(t=>(t.tags||[]).includes(tag)).length+'']);
-  tableWrap.appendChild(buildReportTable(['Tag','Amount','Count'], rows));
-  el.appendChild(tableWrap);
+function renderTagReport(el,expenses) {
+  const bytag={};
+  expenses.forEach(t=>(t.tags||[]).forEach(tag=>{bytag[tag]=(bytag[tag]||0)+Number(t.amount);}));
+  const sorted=Object.entries(bytag).sort((a,b)=>b[1]-a[1]);
+  el.innerHTML='';
+  if (!sorted.length){el.innerHTML=noDataPlaceholder('No tagged transactions in this period');return;}
+  const tw=document.createElement('div');tw.className='card';tw.style.padding='0';
+  tw.appendChild(buildReportTable(['Tag','Amount','Count'],sorted.map(([tag,val])=>[`<span class="tag-chip">${sanitize(tag)}</span>`,fmt(val),STATE.data.transactions.filter(t=>(t.tags||[]).includes(tag)).length+''])));
+  el.appendChild(tw);
 }
 
 function renderMonthlyReport(el) {
-  const months = {};
-  STATE.data.transactions.forEach(t => {
-    const d = new Date(t.date);
-    const key = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;
-    if (!months[key]) months[key] = {exp:0,inc:0};
-    if (t.type==='expense') months[key].exp += t.amount;
-    else months[key].inc += t.amount;
-  });
-  const sorted = Object.entries(months).sort((a,b)=>b[0].localeCompare(a[0])).slice(0,12);
-  el.innerHTML = `<div class="card" style="margin-bottom:12px;padding:12px"><canvas id="report-month-chart" height="180"></canvas></div>`;
-  const tableWrap = document.createElement('div'); tableWrap.className = 'card'; tableWrap.style.padding = '0';
-  const rows = sorted.map(([key,v]) => {
-    const [yr,mo] = key.split('-');
-    const label = new Date(+yr,+mo-1,1).toLocaleDateString('en-IN',{month:'short',year:'numeric'});
-    return [label, fmt(v.inc), fmt(v.exp), v.inc-v.exp >= 0 ? `<span class="badge badge-green">${fmt(v.inc-v.exp)}</span>` : `<span class="badge badge-red">-${fmt(v.exp-v.inc)}</span>`];
-  });
-  tableWrap.appendChild(buildReportTable(['Month','Income','Expense','Net'], rows));
-  el.appendChild(tableWrap);
-  setTimeout(() => {
-    const ctx = document.getElementById('report-month-chart')?.getContext('2d');
-    if (!ctx) return;
-    if (STATE.charts.repMonth) STATE.charts.repMonth.destroy();
-    const labels = sorted.map(([key]) => { const [yr,mo]=key.split('-'); return new Date(+yr,+mo-1,1).toLocaleDateString('en-IN',{month:'short'}); }).reverse();
-    STATE.charts.repMonth = new Chart(ctx, {
-      type:'line',
-      data:{ labels, datasets:[
-        { label:'Expense', data: sorted.map(([,v])=>v.exp).reverse(), borderColor:'var(--red)', backgroundColor:'rgba(255,95,126,.1)', tension:.4, fill:true },
-        { label:'Income', data: sorted.map(([,v])=>v.inc).reverse(), borderColor:'var(--green)', backgroundColor:'rgba(61,214,140,.1)', tension:.4, fill:true }
-      ]},
-      options:{ plugins:{legend:{labels:{color:'#9090a8',font:{size:11}}}}, scales:{ x:{ticks:{color:'#5a5a72',font:{size:10}}}, y:{ticks:{color:'#5a5a72',callback:v=>fmt(v),font:{size:10}}} }, maintainAspectRatio:false }
-    });
-  },50);
+  const months={};
+  STATE.data.transactions.forEach(t=>{const d=new Date(t.date);const key=`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;if(!months[key])months[key]={exp:0,inc:0};if(t.type==='expense')months[key].exp+=Number(t.amount);else months[key].inc+=Number(t.amount);});
+  const sorted=Object.entries(months).sort((a,b)=>b[0].localeCompare(a[0])).slice(0,12);
+  if (!sorted.length){el.innerHTML=noDataPlaceholder('No data yet');return;}
+  el.innerHTML=`<div class="card" style="margin-bottom:12px;padding:12px"><canvas id="report-month-chart" height="180"></canvas></div>`;
+  const tw=document.createElement('div');tw.className='card';tw.style.padding='0';
+  tw.appendChild(buildReportTable(['Month','Income','Expense','Net'],sorted.map(([key,v])=>{const[yr,mo]=key.split('-');const label=new Date(+yr,+mo-1,1).toLocaleDateString('en-IN',{month:'short',year:'numeric'});return[label,fmt(v.inc),fmt(v.exp),v.inc-v.exp>=0?`<span class="badge badge-green">${fmt(v.inc-v.exp)}</span>`:`<span class="badge badge-red">-${fmt(v.exp-v.inc)}</span>`];})));
+  el.appendChild(tw);
+  setTimeout(()=>{const ctx=document.getElementById('report-month-chart')?.getContext('2d');if(!ctx)return;if(STATE.charts.repMonth)STATE.charts.repMonth.destroy();const labels=sorted.map(([key])=>{const[yr,mo]=key.split('-');return new Date(+yr,+mo-1,1).toLocaleDateString('en-IN',{month:'short'});}).reverse();STATE.charts.repMonth=new Chart(ctx,{type:'line',data:{labels,datasets:[{label:'Expense',data:sorted.map(([,v])=>v.exp).reverse(),borderColor:'var(--red)',backgroundColor:'rgba(255,95,126,.1)',tension:.4,fill:true},{label:'Income',data:sorted.map(([,v])=>v.inc).reverse(),borderColor:'var(--green)',backgroundColor:'rgba(61,214,140,.1)',tension:.4,fill:true}]},options:{plugins:{legend:{labels:{color:'var(--text2)',font:{size:11}}}},scales:{x:{ticks:{color:'var(--text3)',font:{size:10}}},y:{ticks:{color:'var(--text3)',callback:v=>fmt(v),font:{size:10}}}},maintainAspectRatio:false}});},50);
 }
 
-function renderPaymentReport(el, expenses, incomes) {
-  const bypm = {};
-  [...expenses,...incomes].forEach(t => { bypm[t.paymentMethod||'Other'] = (bypm[t.paymentMethod||'Other']||0)+t.amount; });
-  const sorted = Object.entries(bypm).sort((a,b)=>b[1]-a[1]);
-  el.innerHTML = '';
-  const tableWrap = document.createElement('div'); tableWrap.className = 'card'; tableWrap.style.padding = '0';
-  const rows = sorted.map(([pm,val]) => [pm, fmt(val), STATE.data.transactions.filter(t=>(t.paymentMethod||'Other')===pm).length+'']);
-  tableWrap.appendChild(buildReportTable(['Payment Method','Amount','Count'], rows));
-  el.appendChild(tableWrap);
+function renderPaymentReport(el,expenses,incomes) {
+  const bypm={};
+  [...expenses,...incomes].forEach(t=>{bypm[t.paymentMethod||'Other']=(bypm[t.paymentMethod||'Other']||0)+Number(t.amount);});
+  const sorted=Object.entries(bypm).sort((a,b)=>b[1]-a[1]);
+  el.innerHTML='';
+  if(!sorted.length){el.innerHTML=noDataPlaceholder('No data for this period');return;}
+  const tw=document.createElement('div');tw.className='card';tw.style.padding='0';
+  tw.appendChild(buildReportTable(['Payment Method','Amount','Count'],sorted.map(([pm,val])=>[pm,fmt(val),STATE.data.transactions.filter(t=>(t.paymentMethod||'Other')===pm).length+''])));
+  el.appendChild(tw);
 }
 
 // ════════════════════════════════════════════
 // TXN DETAIL
 // ════════════════════════════════════════════
 function openTxnDetail(id) {
-  const t = STATE.data.transactions.find(x => x.id === id);
-  if (!t) return;
-  const cat = getCat(t.category);
-  const el = document.getElementById('txn-detail-body');
-  el.innerHTML = '';
-
-  const rows = [
-    ['Type', t.type === 'expense' ? '<span class="badge badge-red">Expense</span>' : '<span class="badge badge-green">Income</span>'],
-    ['Amount', `<span style="font-family:var(--font-mono);font-size:20px">${t.type==='expense'?'−':'+'} ${fmtFull(t.amount)}</span>`],
-    ['Title', sanitize(t.title||'—')],
-    ['Date', new Date(t.date).toLocaleDateString('en-IN',{weekday:'long',day:'numeric',month:'long',year:'numeric'})],
-    ['Category', `${sanitize(cat.icon)} ${sanitize(cat.name)}`],
-    ['Tags', (t.tags||[]).length ? (t.tags||[]).map(tag=>`<span class="tag-chip">${sanitize(tag)}</span>`).join('') : '—'],
-    ['Payment', sanitize(t.paymentMethod||'—')],
-    ['Notes', sanitize(t.notes||'—')],
+  const t=STATE.data.transactions.find(x=>x.id===id); if(!t)return;
+  const cat=getCat(t.category);
+  const el=document.getElementById('txn-detail-body'); el.innerHTML='';
+  const timeStr = t.time ? ` at ${t.time}` : '';
+  const rows=[
+    ['Type',t.type==='expense'?'<span class="badge badge-red">Expense</span>':'<span class="badge badge-green">Income</span>'],
+    ['Amount',`<span style="font-family:var(--font-mono);font-size:20px">${t.type==='expense'?'−':'+'} ${fmtFull(t.amount)}</span>`],
+    ['Title',sanitize(t.title||'—')],
+    ['Date & Time',new Date(t.date).toLocaleDateString('en-IN',{weekday:'long',day:'numeric',month:'long',year:'numeric'})+timeStr],
+    ['Category',`${sanitize(cat.icon)} ${sanitize(cat.name)}`],
+    ['Tags',(t.tags||[]).length?(t.tags||[]).map(tag=>`<span class="tag-chip">${sanitize(tag)}</span>`).join(''):'—'],
+    ['Payment',sanitize(t.paymentMethod||'—')],
+    ['Notes',sanitize(t.notes||'—')],
   ];
-
-  // Custom fields
-  (t.customFields||{});
-  (STATE.data.customFields||[]).forEach(cf => {
-    const val = (t.customFields||{})[cf.id];
-    if (val !== undefined && val !== '') rows.push([sanitize(cf.label), sanitize(String(val))]);
-  });
-
-  rows.forEach(([k,v]) => {
-    const row = document.createElement('div');
-    row.style.cssText = 'display:flex;justify-content:space-between;align-items:flex-start;padding:10px 0;border-bottom:1px solid var(--border);gap:12px;';
-    row.innerHTML = `<span style="font-size:12px;color:var(--text3);font-family:var(--font-display);font-weight:700;letter-spacing:.04em;flex-shrink:0;text-transform:uppercase">${k}</span><span style="font-size:14px;text-align:right;flex:1">${v}</span>`;
-    el.appendChild(row);
-  });
-
-  const btnRow = document.createElement('div');
-  btnRow.style.cssText = 'display:flex;gap:8px;margin-top:16px;';
-  btnRow.innerHTML = `<button class="btn btn-ghost" style="flex:1" onclick="editTxn('${sanitize(id)}')">Edit</button><button class="btn btn-danger" style="flex:1" onclick="deleteTxn('${sanitize(id)}')">Delete</button>`;
+  (STATE.data.customFields||[]).forEach(cf=>{const val=(t.customFields||{})[cf.id];if(val!==undefined&&val!=='')rows.push([sanitize(cf.label),sanitize(String(val))]);});
+  rows.forEach(([k,v])=>{const row=document.createElement('div');row.style.cssText='display:flex;justify-content:space-between;align-items:flex-start;padding:10px 0;border-bottom:1px solid var(--border);gap:12px;';row.innerHTML=`<span style="font-size:12px;color:var(--text3);font-family:var(--font-display);font-weight:700;letter-spacing:.04em;flex-shrink:0;text-transform:uppercase">${k}</span><span style="font-size:14px;text-align:right;flex:1">${v}</span>`;el.appendChild(row);});
+  const btnRow=document.createElement('div');btnRow.style.cssText='display:flex;gap:8px;margin-top:16px;';
+  btnRow.innerHTML=`<button class="btn btn-ghost" style="flex:1" onclick="editTxn('${sanitize(id)}')">Edit</button><button class="btn btn-danger" style="flex:1" onclick="deleteTxn('${sanitize(id)}')">Delete</button>`;
   el.appendChild(btnRow);
   openModal('txn-detail-modal');
 }
 
 function editTxn(id) {
   closeModal('txn-detail-modal');
-  const t = STATE.data.transactions.find(x => x.id === id);
-  if (!t) return;
-  STATE.editingTxnId = id;
-  STATE.dialAmount = t.amount;
-  STATE.dialType = t.type;
+  const t=STATE.data.transactions.find(x=>x.id===id); if(!t)return;
+  STATE.editingTxnId=id; STATE.entryType=t.type;
   openEntryModal();
-  setTimeout(() => {
-    document.getElementById('entry-title').value = sanitize(t.title||'');
-    document.getElementById('entry-date').value = t.date;
-    const catEl = document.getElementById('entry-category');
-    if (catEl) catEl.value = t.category;
-    document.getElementById('entry-payment').value = t.paymentMethod||'UPI';
-    document.getElementById('entry-notes').value = sanitize(t.notes||'');
-    (t.tags||[]).forEach(tag => addTag(tag));
-  }, 100);
+  setTimeout(()=>{
+    document.getElementById('entry-amount').value=t.amount;
+    document.getElementById('entry-title').value=t.title||'';
+    document.getElementById('entry-date').value=t.date;
+    document.getElementById('entry-time').value=t.time||'';
+    const catEl=document.getElementById('entry-category'); if(catEl)catEl.value=t.category;
+    document.getElementById('entry-payment').value=t.paymentMethod||'UPI';
+    document.getElementById('entry-notes').value=t.notes||'';
+    STATE.activeTags=[...(t.tags||[])]; renderTagChips();
+  },100);
 }
 
 function deleteTxn(id) {
-  if (!confirm('Delete this entry? This cannot be undone.')) return;
-  STATE.data.transactions = STATE.data.transactions.filter(t => t.id !== id);
-  saveData();
-  closeModal('txn-detail-modal');
-  renderDashboard();
-  renderHistory();
-  showToast('Entry deleted');
-}
-
-// ════════════════════════════════════════════
-// DIAL
-// ════════════════════════════════════════════
-const CIRC = 2 * Math.PI * 110; // circumference
-let dialDragging = false, dialStartAngle = 0, dialStartAmount = 0;
-
-function openDialModal() {
-  STATE.dialAmount = 0;
-  updateDialDisplay();
-  openModal('dial-modal');
-  setTimeout(initDial, 100);
-}
-
-function initDial() {
-  const wrap = document.getElementById('dial-wrap');
-  if (!wrap) return;
-  drawDialTicks();
-  wrap.addEventListener('touchstart', dialTouchStart, {passive:false});
-  wrap.addEventListener('touchmove', dialTouchMove, {passive:false});
-  wrap.addEventListener('touchend', dialTouchEnd, {passive:false});
-  wrap.addEventListener('mousedown', dialMouseStart);
-  window.addEventListener('mousemove', dialMouseMove);
-  window.addEventListener('mouseup', dialMouseEnd);
-}
-
-function drawDialTicks() {
-  const svg = document.getElementById('dial-ticks');
-  if (!svg) return;
-  svg.innerHTML = '';
-  for (let i=0;i<36;i++) {
-    const angle = (i/36)*2*Math.PI - Math.PI/2;
-    const r1 = 100, r2 = 105;
-    const x1 = 130+r1*Math.cos(angle), y1 = 130+r1*Math.sin(angle);
-    const x2 = 130+r2*Math.cos(angle), y2 = 130+r2*Math.sin(angle);
-    const line = document.createElementNS('http://www.w3.org/2000/svg','line');
-    line.setAttribute('x1',x1); line.setAttribute('y1',y1);
-    line.setAttribute('x2',x2); line.setAttribute('y2',y2);
-    line.setAttribute('stroke',i%9===0?'var(--accent2)':'var(--border)');
-    line.setAttribute('stroke-width',i%9===0?'2':'1');
-    svg.appendChild(line);
-  }
-}
-
-function getAngle(wrap, cx, cy) {
-  const rect = wrap.getBoundingClientRect();
-  const mx = cx - rect.left - rect.width/2;
-  const my = cy - rect.top - rect.height/2;
-  return Math.atan2(my, mx) + Math.PI/2;
-}
-
-function dialTouchStart(e) {
-  e.preventDefault();
-  const t = e.touches[0];
-  dialDragging = true;
-  dialStartAngle = getAngle(e.currentTarget, t.clientX, t.clientY);
-  dialStartAmount = STATE.dialAmount;
-}
-function dialTouchMove(e) {
-  if (!dialDragging) return;
-  e.preventDefault();
-  const t = e.touches[0];
-  updateDialFromAngle(e.currentTarget, t.clientX, t.clientY);
-}
-function dialTouchEnd() { dialDragging = false; }
-
-function dialMouseStart(e) {
-  dialDragging = true;
-  dialStartAngle = getAngle(e.currentTarget, e.clientX, e.clientY);
-  dialStartAmount = STATE.dialAmount;
-}
-function dialMouseMove(e) {
-  if (!dialDragging) return;
-  const wrap = document.getElementById('dial-wrap');
-  if (wrap) updateDialFromAngle(wrap, e.clientX, e.clientY);
-}
-function dialMouseEnd() { dialDragging = false; }
-
-function updateDialFromAngle(wrap, cx, cy) {
-  const angle = getAngle(wrap, cx, cy);
-  let delta = angle - dialStartAngle;
-  // Normalize delta to [-PI, PI]
-  while (delta > Math.PI) delta -= 2*Math.PI;
-  while (delta < -Math.PI) delta += 2*Math.PI;
-  const steps = Math.round(delta / (Math.PI/18)); // 10° per step
-  const newAmount = Math.max(0, dialStartAmount + steps * STATE.dialStep);
-  if (newAmount !== STATE.dialAmount) {
-    STATE.dialAmount = newAmount;
-    updateDialDisplay();
-  }
-}
-
-function updateDialDisplay() {
-  const max = Math.max(STATE.dialAmount, STATE.dialStep * 36);
-  const pct = max ? STATE.dialAmount / max : 0;
-  const offset = CIRC - pct * CIRC;
-  const arc = document.getElementById('dial-arc');
-  const handle = document.getElementById('dial-handle');
-  if (arc) arc.setAttribute('stroke-dashoffset', offset);
-  if (handle) {
-    const angle = pct * 2*Math.PI - Math.PI/2;
-    handle.setAttribute('cx', 130 + 110 * Math.cos(angle));
-    handle.setAttribute('cy', 130 + 110 * Math.sin(angle));
-  }
-  const amtEl = document.getElementById('dial-amount-display');
-  if (amtEl) safeText(amtEl, STATE.dialAmount.toLocaleString('en-IN'));
-  const previewEl = document.getElementById('entry-amount-preview');
-  if (previewEl) safeText(previewEl, (STATE.dialType==='expense'?'− ':'+ ') + '₹' + STATE.dialAmount.toLocaleString('en-IN'));
-}
-
-function setDialStep(val, btn) {
-  STATE.dialStep = val;
-  document.querySelectorAll('.step-btn').forEach(b => b.classList.remove('active'));
-  btn.classList.add('active');
-  safeText(document.getElementById('dial-step-display'), val >= 1000 ? '₹'+(val/1000)+'K' : '₹'+val);
-}
-
-function setDialType(type) {
-  STATE.dialType = type;
-  document.getElementById('dial-type-exp').className = 'type-btn ' + (type==='expense' ? 'active-exp' : '');
-  document.getElementById('dial-type-inc').className = 'type-btn ' + (type==='income' ? 'active-inc' : '');
-}
-
-function proceedFromDial() {
-  if (STATE.dialAmount <= 0) { showToast('Set an amount first'); return; }
-  closeModal('dial-modal');
-  openEntryModal();
+  if(!confirm('Delete this entry? This cannot be undone.'))return;
+  STATE.data.transactions=STATE.data.transactions.filter(t=>t.id!==id);
+  saveData(); closeModal('txn-detail-modal'); renderDashboard(); renderHistory(); showToast('Entry deleted');
 }
 
 // ════════════════════════════════════════════
 // ENTRY MODAL
 // ════════════════════════════════════════════
 function openEntryModal() {
-  const isEdit = !!STATE.editingTxnId;
-  safeText(document.getElementById('entry-modal-title'), isEdit ? 'Edit Entry' : (STATE.dialType==='expense'?'Add Expense':'Add Income'));
-  document.getElementById('entry-amount-preview').textContent = (STATE.dialType==='expense'?'− ':'+ ') + '₹' + STATE.dialAmount.toLocaleString('en-IN');
-  if (!isEdit) {
-    document.getElementById('entry-title').value = '';
-    document.getElementById('entry-date').value = new Date().toISOString().slice(0,10);
-    document.getElementById('entry-notes').value = '';
-    document.getElementById('entry-payment').value = 'UPI';
-    clearTags();
+  const isEdit=!!STATE.editingTxnId;
+  // Set type toggle
+  setEntryType(STATE.entryType||'expense');
+  safeText(document.getElementById('entry-modal-title'), isEdit?'Edit Entry':(STATE.entryType==='expense'?'Add Expense':'Add Income'));
+  if(!isEdit){
+    document.getElementById('entry-amount').value='';
+    document.getElementById('entry-title').value='';
+    const {date,time}=getNowDateTimeLocal();
+    document.getElementById('entry-date').value=date;
+    document.getElementById('entry-time').value=time;
+    document.getElementById('entry-notes').value='';
+    document.getElementById('entry-payment').value='UPI';
+    STATE.activeTags=[]; renderTagChips();
+    STATE.editingTxnId=null;
   }
   populateCategorySelect();
   renderCustomFieldsInEntry();
   openModal('entry-modal');
 }
 
+function setEntryType(type) {
+  STATE.entryType=type;
+  const expBtn=document.getElementById('entry-type-exp');
+  const incBtn=document.getElementById('entry-type-inc');
+  if(expBtn) expBtn.className='type-btn '+(type==='expense'?'active-exp':'');
+  if(incBtn) incBtn.className='type-btn '+(type==='income'?'active-inc':'');
+  safeText(document.getElementById('entry-modal-title'), type==='expense'?'Add Expense':'Add Income');
+}
+
 function populateCategorySelect() {
-  const sel = document.getElementById('entry-category');
-  sel.innerHTML = '';
-  STATE.data.categories.forEach(cat => {
-    const opt = document.createElement('option');
-    opt.value = cat.id;
-    opt.textContent = cat.icon + ' ' + cat.name;
-    sel.appendChild(opt);
-  });
+  const sel=document.getElementById('entry-category'); sel.innerHTML='';
+  STATE.data.categories.forEach(cat=>{const opt=document.createElement('option');opt.value=cat.id;opt.textContent=cat.icon+' '+cat.name;sel.appendChild(opt);});
 }
 
 function renderCustomFieldsInEntry() {
-  const el = document.getElementById('entry-custom-fields');
-  el.innerHTML = '';
-  const fields = (STATE.data.customFields||[]).filter(f => f.applies==='both' || f.applies===STATE.dialType);
-  fields.forEach(cf => {
-    const div = document.createElement('div'); div.className = 'field';
-    const lbl = document.createElement('label'); safeText(lbl, cf.label);
-    div.appendChild(lbl);
+  const el=document.getElementById('entry-custom-fields'); el.innerHTML='';
+  const fields=(STATE.data.customFields||[]).filter(f=>f.applies==='both'||f.applies===STATE.entryType);
+  fields.forEach(cf=>{
+    const div=document.createElement('div');div.className='field';
+    const lbl=document.createElement('label');safeText(lbl,cf.label);div.appendChild(lbl);
     let input;
-    if (cf.type === 'select') {
-      input = document.createElement('select');
-      input.innerHTML = '<option value="">Select…</option>';
-      (cf.options||[]).forEach(o => { const opt = document.createElement('option'); safeText(opt, o); opt.value = o; input.appendChild(opt); });
-    } else if (cf.type === 'checkbox') {
-      input = document.createElement('input'); input.type = 'checkbox';
-    } else {
-      input = document.createElement('input'); input.type = cf.type==='number'?'number':'text';
-      if (cf.type==='date') input.type='date';
-    }
-    input.id = 'cf_' + cf.id;
-    input.style.cssText = 'background:var(--bg3);border:1px solid var(--border);border-radius:var(--radius-sm);padding:11px 14px;color:var(--text);font-family:var(--font-body);font-size:15px;outline:none;width:100%;';
-    div.appendChild(input);
-    el.appendChild(div);
+    if(cf.type==='select'){input=document.createElement('select');input.innerHTML='<option value="">Select…</option>';(cf.options||[]).forEach(o=>{const opt=document.createElement('option');safeText(opt,o);opt.value=o;input.appendChild(opt);});}
+    else if(cf.type==='checkbox'){input=document.createElement('input');input.type='checkbox';}
+    else{input=document.createElement('input');input.type=cf.type==='number'?'number':cf.type==='date'?'date':'text';}
+    input.id='cf_'+cf.id;
+    input.style.cssText='background:var(--bg3);border:1px solid var(--border);border-radius:var(--radius-sm);padding:11px 14px;color:var(--text);font-family:var(--font-body);font-size:15px;outline:none;width:100%;';
+    div.appendChild(input);el.appendChild(div);
   });
 }
 
 function saveEntry() {
-  const title = document.getElementById('entry-title').value.trim();
-  const date = document.getElementById('entry-date').value;
-  const category = document.getElementById('entry-category').value;
-  const paymentMethod = document.getElementById('entry-payment').value;
-  const notes = document.getElementById('entry-notes').value.trim();
+  const amountRaw=document.getElementById('entry-amount').value;
+  const amount=parseFloat(amountRaw);
+  const title=document.getElementById('entry-title').value.trim();
+  const date=document.getElementById('entry-date').value;
+  const time=document.getElementById('entry-time').value;
+  const category=document.getElementById('entry-category').value;
+  const paymentMethod=document.getElementById('entry-payment').value;
+  const notes=document.getElementById('entry-notes').value.trim();
 
-  if (!title) { showToast('Please enter a title'); return; }
-  if (!date) { showToast('Please pick a date'); return; }
-  if (STATE.dialAmount <= 0) { showToast('Amount must be greater than 0'); return; }
+  if(!title){showToast('Please enter a title');return;}
+  if(!date){showToast('Please pick a date');return;}
+  if(isNaN(amount)||amount<=0){showToast('Please enter a valid amount greater than 0');return;}
 
-  // Custom fields
-  const customFields = {};
-  (STATE.data.customFields||[]).forEach(cf => {
-    const el = document.getElementById('cf_' + cf.id);
-    if (el) customFields[cf.id] = cf.type==='checkbox' ? el.checked : el.value;
-  });
+  const customFields={};
+  (STATE.data.customFields||[]).forEach(cf=>{const el=document.getElementById('cf_'+cf.id);if(el)customFields[cf.id]=cf.type==='checkbox'?el.checked:el.value;});
 
-  if (STATE.editingTxnId) {
-    const idx = STATE.data.transactions.findIndex(t => t.id === STATE.editingTxnId);
-    if (idx !== -1) {
-      STATE.data.transactions[idx] = { ...STATE.data.transactions[idx], title, date, category, paymentMethod, notes, tags: [...STATE.activeTags], amount: STATE.dialAmount, type: STATE.dialType, customFields, updatedAt: new Date().toISOString() };
-    }
-    STATE.editingTxnId = null;
+  if(STATE.editingTxnId){
+    const idx=STATE.data.transactions.findIndex(t=>t.id===STATE.editingTxnId);
+    if(idx!==-1) STATE.data.transactions[idx]={...STATE.data.transactions[idx],title,date,time,category,paymentMethod,notes,tags:[...STATE.activeTags],amount,type:STATE.entryType,customFields,updatedAt:new Date().toISOString()};
+    STATE.editingTxnId=null;
   } else {
-    STATE.data.transactions.push({ id: generateId(), type: STATE.dialType, amount: STATE.dialAmount, title, date, category, paymentMethod, notes, tags: [...STATE.activeTags], customFields, createdAt: new Date().toISOString() });
+    STATE.data.transactions.push({id:generateId(),type:STATE.entryType,amount,title,date,time,category,paymentMethod,notes,tags:[...STATE.activeTags],customFields,createdAt:new Date().toISOString()});
   }
 
-  STATE.activeTags = [];
+  STATE.activeTags=[];
   saveData();
   closeModal('entry-modal');
   renderDashboard();
@@ -1642,45 +1442,69 @@ function saveEntry() {
 }
 
 // ════════════════════════════════════════════
-// TAGS
+// TAGS — dropdown multi-select
 // ════════════════════════════════════════════
-function handleTagInput(e) {
-  if (e.key === 'Enter' || e.key === ',') {
-    e.preventDefault();
-    const val = e.target.value.trim().replace(/,/g,'');
-    if (val) addTag(val);
-    e.target.value = '';
-  } else if (e.key === 'Backspace' && !e.target.value && STATE.activeTags.length) {
-    removeTag(STATE.activeTags[STATE.activeTags.length-1]);
-  }
+function toggleTagDropdown() {
+  STATE.tagDropdownOpen=!STATE.tagDropdownOpen;
+  const dd=document.getElementById('tag-dropdown');
+  if(!dd)return;
+  dd.style.display=STATE.tagDropdownOpen?'block':'none';
+  if(STATE.tagDropdownOpen) renderTagDropdownList();
 }
 
-function addTag(tag) {
-  const clean = String(tag).slice(0,30).replace(/[<>'"&]/g,'');
-  if (!clean || STATE.activeTags.includes(clean)) return;
-  STATE.activeTags.push(clean);
-  renderTagChips();
+function closeTagDropdown() {
+  STATE.tagDropdownOpen=false;
+  const dd=document.getElementById('tag-dropdown');
+  if(dd) dd.style.display='none';
 }
 
-function removeTag(tag) {
-  STATE.activeTags = STATE.activeTags.filter(t => t !== tag);
-  renderTagChips();
+function renderTagDropdownList() {
+  const list=document.getElementById('tag-dropdown-list'); if(!list)return;
+  list.innerHTML='';
+  const allTags=STATE.data.tags||[];
+  if(!allTags.length){list.innerHTML='<div style="padding:12px;font-size:13px;color:var(--text3)">No tags yet — add some in Settings → Tags</div>';return;}
+  allTags.forEach(tag=>{
+    const isActive=STATE.activeTags.includes(tag);
+    const item=document.createElement('div');
+    item.style.cssText=`display:flex;align-items:center;gap:10px;padding:10px 14px;cursor:pointer;border-bottom:1px solid var(--border);background:${isActive?'rgba(124,108,252,.1)':'transparent'};`;
+    item.innerHTML=`<div style="width:18px;height:18px;border-radius:4px;border:2px solid ${isActive?'var(--accent)':'var(--border)'};background:${isActive?'var(--accent)':'transparent'};display:flex;align-items:center;justify-content:center;flex-shrink:0">${isActive?'<svg width="10" height="10" viewBox="0 0 10 10"><polyline points="1.5,5 4,7.5 8.5,2.5" stroke="#fff" stroke-width="1.8" fill="none"/></svg>':''}</div><span style="font-size:14px">${sanitize(tag)}</span>`;
+    item.onclick=(e)=>{e.stopPropagation();toggleTag(tag);renderTagDropdownList();renderTagChips();};
+    list.appendChild(item);
+  });
 }
 
-function clearTags() { STATE.activeTags = []; renderTagChips(); }
+function toggleTag(tag) {
+  if(STATE.activeTags.includes(tag)) STATE.activeTags=STATE.activeTags.filter(t=>t!==tag);
+  else STATE.activeTags.push(tag);
+}
 
 function renderTagChips() {
-  const wrap = document.getElementById('tags-wrap');
-  if (!wrap) return;
-  const input = document.getElementById('tags-hidden-input');
-  wrap.innerHTML = '';
-  STATE.activeTags.forEach(tag => {
-    const chip = document.createElement('div'); chip.className = 'tag-chip';
-    chip.innerHTML = `${sanitize(tag)}<button onclick="removeTag('${sanitize(tag)}')" type="button">×</button>`;
+  const wrap=document.getElementById('tags-wrap'); if(!wrap)return;
+  wrap.innerHTML='';
+  if(!STATE.activeTags.length){
+    const placeholder=document.createElement('span');
+    placeholder.style.cssText='font-size:14px;color:var(--text3);padding:2px 4px;';
+    safeText(placeholder,'Tap to select tags…');
+    wrap.appendChild(placeholder); return;
+  }
+  STATE.activeTags.forEach(tag=>{
+    const chip=document.createElement('div');chip.className='tag-chip';
+    chip.innerHTML=`${sanitize(tag)}<button onclick="event.stopPropagation();removeTagFromEntry('${sanitize(tag)}')" type="button" style="background:none;border:none;color:var(--accent2);cursor:pointer;font-size:14px;line-height:1;padding:0;margin-left:2px">×</button>`;
     wrap.appendChild(chip);
   });
-  wrap.appendChild(input);
 }
+
+function removeTagFromEntry(tag) {
+  STATE.activeTags=STATE.activeTags.filter(t=>t!==tag);
+  renderTagChips();
+}
+
+// Close tag dropdown when clicking outside
+document.addEventListener('click', e => {
+  const wrap=document.getElementById('tags-wrap');
+  const dd=document.getElementById('tag-dropdown');
+  if(wrap&&dd&&!wrap.contains(e.target)&&!dd.contains(e.target)) closeTagDropdown();
+});
 
 // ════════════════════════════════════════════
 // SETTINGS
@@ -1688,286 +1512,187 @@ function renderTagChips() {
 function renderSettings() {
   renderCategorySettings();
   renderCustomFieldsSettings();
-  if (STATE.user.isAdmin) renderAdminUsers();
+  renderTagsSettings();
+  if(STATE.user&&STATE.user.isAdmin) renderAdminUsers();
+  // Sync theme toggle state
+  const isDark=!document.documentElement.classList.contains('light');
+  const toggle=document.getElementById('theme-toggle');
+  if(toggle) toggle.classList.toggle('on',isDark);
+}
+
+function renderTagsSettings() {
+  const el=document.getElementById('tags-settings-list'); if(!el)return;
+  el.innerHTML='';
+  const tags=STATE.data.tags||[];
+  if(!tags.length){const row=document.createElement('div');row.className='settings-row';safeText(row,'No tags yet — add one below');row.style.color='var(--text3)';el.appendChild(row);return;}
+  tags.forEach((tag,i)=>{
+    const row=document.createElement('div');row.className='settings-row';
+    row.innerHTML=`<span class="settings-label">${sanitize(tag)}</span><button class="icon-btn danger" onclick="deleteTag(${i})">🗑</button>`;
+    el.appendChild(row);
+  });
+}
+
+function addTagFromSettings() {
+  const input=document.getElementById('new-tag-input');
+  const val=input.value.trim().slice(0,30);
+  if(!val){showToast('Enter a tag name');return;}
+  if((STATE.data.tags||[]).map(t=>t.toLowerCase()).includes(val.toLowerCase())){showToast('Tag already exists');return;}
+  if(!STATE.data.tags) STATE.data.tags=[];
+  if(STATE.data.tags.length>=50){showToast('Max 50 tags allowed');return;}
+  STATE.data.tags.push(val);
+  input.value='';
+  saveData();
+  renderTagsSettings();
+  showToast('Tag added');
+}
+
+function deleteTag(index) {
+  if(!confirm('Delete this tag?'))return;
+  STATE.data.tags.splice(index,1);
+  saveData();
+  renderTagsSettings();
+  showToast('Tag deleted');
 }
 
 function renderCategorySettings() {
-  const el = document.getElementById('category-settings-list');
-  el.innerHTML = '';
-  STATE.data.categories.forEach(cat => {
-    const row = document.createElement('div'); row.className = 'settings-row';
-    row.innerHTML = `<div style="display:flex;align-items:center;gap:8px"><div style="width:24px;height:24px;border-radius:6px;background:${cat.color}22;display:flex;align-items:center;justify-content:center;font-size:14px">${sanitize(cat.icon)}</div><span class="settings-label">${sanitize(cat.name)}</span></div><button class="icon-btn danger" onclick="deleteCategory('${sanitize(cat.id)}')">🗑</button>`;
+  const el=document.getElementById('category-settings-list'); el.innerHTML='';
+  STATE.data.categories.forEach(cat=>{
+    const row=document.createElement('div');row.className='settings-row';
+    row.innerHTML=`<div style="display:flex;align-items:center;gap:8px"><div style="width:24px;height:24px;border-radius:6px;background:${cat.color}22;display:flex;align-items:center;justify-content:center;font-size:14px">${sanitize(cat.icon)}</div><span class="settings-label">${sanitize(cat.name)}</span></div><button class="icon-btn danger" onclick="deleteCategory('${sanitize(cat.id)}')">🗑</button>`;
     el.appendChild(row);
   });
 }
 
 function renderCustomFieldsSettings() {
-  const el = document.getElementById('custom-fields-settings');
-  el.innerHTML = '';
-  if (!STATE.data.customFields.length) {
-    const empty = document.createElement('div'); empty.className = 'settings-row';
-    safeText(empty, 'No custom fields yet');
-    empty.style.color = 'var(--text3)';
-    el.appendChild(empty); return;
-  }
-  STATE.data.customFields.forEach(cf => {
-    const row = document.createElement('div'); row.className = 'settings-row';
-    row.innerHTML = `<div><div class="settings-label">${sanitize(cf.label)}</div><div class="settings-desc">${sanitize(cf.type)} • ${sanitize(cf.applies)}</div></div><button class="icon-btn danger" onclick="deleteCustomField('${sanitize(cf.id)}')">🗑</button>`;
-    el.appendChild(row);
-  });
+  const el=document.getElementById('custom-fields-settings');el.innerHTML='';
+  if(!STATE.data.customFields.length){const empty=document.createElement('div');empty.className='settings-row';safeText(empty,'No custom fields yet');empty.style.color='var(--text3)';el.appendChild(empty);return;}
+  STATE.data.customFields.forEach(cf=>{const row=document.createElement('div');row.className='settings-row';row.innerHTML=`<div><div class="settings-label">${sanitize(cf.label)}</div><div class="settings-desc">${sanitize(cf.type)} · ${sanitize(cf.applies)}</div></div><button class="icon-btn danger" onclick="deleteCustomField('${sanitize(cf.id)}')">🗑</button>`;el.appendChild(row);});
 }
 
 function renderAdminUsers() {
-  const el = document.getElementById('admin-users-list');
-  if (!el) return;
-  el.innerHTML = '';
-  const members = STATE.data.members || [];
-  if (!members.length) {
-    const row = document.createElement('div'); row.className = 'settings-row';
-    safeText(row, 'No members added yet');
-    row.style.color = 'var(--text3)';
-    el.appendChild(row); return;
-  }
-  members.forEach(m => {
-    const row = document.createElement('div'); row.className = 'settings-row';
-    row.innerHTML = `<div><div class="settings-label">${sanitize(m.name)}</div><div class="settings-desc">${sanitize(m.email)}</div></div><button class="icon-btn danger" onclick="removeMember('${sanitize(m.id)}')">Remove</button>`;
-    el.appendChild(row);
-  });
+  const el=document.getElementById('admin-users-list');if(!el)return;el.innerHTML='';
+  const members=STATE.data.members||[];
+  if(!members.length){const row=document.createElement('div');row.className='settings-row';safeText(row,'No members added yet');row.style.color='var(--text3)';el.appendChild(row);return;}
+  members.forEach(m=>{const row=document.createElement('div');row.className='settings-row';row.innerHTML=`<div><div class="settings-label">${sanitize(m.name)}</div><div class="settings-desc">${sanitize(m.email)}</div></div><button class="icon-btn danger" onclick="removeMember('${sanitize(m.id)}')">Remove</button>`;el.appendChild(row);});
 }
 
 function renderAdminSwitcher() {
-  const el = document.getElementById('user-switcher');
-  el.innerHTML = '';
-  // Self chip
-  const self = document.createElement('div'); self.className = 'user-chip active'; self.dataset.uid = STATE.user.id;
-  self.onclick = () => switchViewTo(STATE.user.id, self);
-  self.innerHTML = `<div class="user-avatar">${STATE.user.picture ? `<img src="${sanitize(STATE.user.picture)}" style="width:100%;height:100%;border-radius:50%">` : sanitize((STATE.user.name||'?')[0])}</div><div class="user-chip-name">You</div>`;
+  const el=document.getElementById('user-switcher');el.innerHTML='';
+  const self=document.createElement('div');self.className='user-chip active';self.dataset.uid=STATE.user.id;
+  self.onclick=()=>switchViewTo(STATE.user.id,self);
+  self.innerHTML=`<div class="user-avatar">${STATE.user.picture?`<img src="${sanitize(STATE.user.picture)}" style="width:100%;height:100%;border-radius:50%">`:sanitize((STATE.user.name||'?')[0])}</div><div class="user-chip-name">You</div>`;
   el.appendChild(self);
-  (STATE.data.members||[]).forEach(m => {
-    const chip = document.createElement('div'); chip.className = 'user-chip'; chip.dataset.uid = m.id;
-    chip.onclick = () => switchViewTo(m.id, chip);
-    chip.innerHTML = `<div class="user-avatar">${sanitize((m.name||'?')[0])}</div><div class="user-chip-name">${sanitize(m.name)}</div>`;
-    el.appendChild(chip);
-  });
+  (STATE.data.members||[]).forEach(m=>{const chip=document.createElement('div');chip.className='user-chip';chip.dataset.uid=m.id;chip.onclick=()=>switchViewTo(m.id,chip);chip.innerHTML=`<div class="user-avatar">${sanitize((m.name||'?')[0])}</div><div class="user-chip-name">${sanitize(m.name)}</div>`;el.appendChild(chip);});
 }
 
-function switchViewTo(uid, chipEl) {
-  document.querySelectorAll('.user-chip').forEach(c => c.classList.remove('active'));
-  chipEl.classList.add('active');
-  STATE.viewingUserId = uid;
-  if (uid === STATE.user.id) {
-    // Already loaded
-  } else {
-    showToast('Loading ' + sanitize(chipEl.querySelector('.user-chip-name').textContent) + "'s data…");
-  }
+function switchViewTo(uid,chipEl) {
+  document.querySelectorAll('.user-chip').forEach(c=>c.classList.remove('active'));
+  chipEl.classList.add('active');STATE.viewingUserId=uid;
+  showToast(uid===STATE.user.id?'Viewing your data':'Viewing '+sanitize(chipEl.querySelector('.user-chip-name').textContent)+"'s data");
   renderDashboard();
 }
 
 // ════════════════════════════════════════════
 // CATEGORY MANAGEMENT
 // ════════════════════════════════════════════
-let selectedCatColor = '#7c6cfc';
-
-function openAddCategoryModal() { selectedCatColor = '#7c6cfc'; openModal('cat-modal'); }
-
-function selectColor(el, color) {
-  selectedCatColor = color;
-  document.querySelectorAll('#cat-color-picker div').forEach(d => d.style.borderColor = 'transparent');
-  el.style.borderColor = '#fff';
+let selectedCatColor='#7c6cfc';
+function openAddCategoryModal(){selectedCatColor='#7c6cfc';openModal('cat-modal');}
+function selectColor(el,color){selectedCatColor=color;document.querySelectorAll('#cat-color-picker div').forEach(d=>d.style.borderColor='transparent');el.style.borderColor='#fff';}
+function saveCategory(){
+  const name=document.getElementById('cat-name').value.trim();
+  const icon=document.getElementById('cat-icon').value.trim()||'📦';
+  if(!name){showToast('Enter a category name');return;}
+  if(name.length>40){showToast('Name too long');return;}
+  const id=name.toLowerCase().replace(/[^a-z0-9]/g,'_')+'_'+Date.now();
+  STATE.data.categories.push({id,name,icon:icon.slice(0,2),color:selectedCatColor});
+  saveData();closeModal('cat-modal');renderCategorySettings();showToast('Category added');
 }
-
-function saveCategory() {
-  const name = document.getElementById('cat-name').value.trim();
-  const icon = document.getElementById('cat-icon').value.trim() || '📦';
-  if (!name) { showToast('Enter a category name'); return; }
-  if (name.length > 40) { showToast('Name too long (max 40 chars)'); return; }
-  const id = name.toLowerCase().replace(/[^a-z0-9]/g,'_') + '_' + Date.now();
-  STATE.data.categories.push({ id, name, icon: icon.slice(0,2), color: selectedCatColor });
-  saveData();
-  closeModal('cat-modal');
-  renderCategorySettings();
-  showToast('Category added');
-}
-
-function deleteCategory(id) {
-  if (!confirm('Delete this category? Entries will show as "Other".')) return;
-  STATE.data.categories = STATE.data.categories.filter(c => c.id !== id);
-  saveData();
-  renderCategorySettings();
-  showToast('Category deleted');
+function deleteCategory(id){
+  if(!confirm('Delete this category?'))return;
+  STATE.data.categories=STATE.data.categories.filter(c=>c.id!==id);
+  saveData();renderCategorySettings();showToast('Category deleted');
 }
 
 // ════════════════════════════════════════════
 // CUSTOM FIELDS
 // ════════════════════════════════════════════
-function openCustomFieldModal() {
-  document.getElementById('cf-type').addEventListener('change', function() {
-    document.getElementById('cf-options-wrap').style.display = this.value==='select'?'flex':'none';
-  }, {once:false});
-  openModal('cf-modal');
+function openCustomFieldModal(){openModal('cf-modal');}
+function saveCustomField(){
+  const label=document.getElementById('cf-label').value.trim();
+  const type=document.getElementById('cf-type').value;
+  const applies=document.getElementById('cf-applies').value;
+  if(!label){showToast('Enter a field label');return;}
+  if(label.length>50){showToast('Label too long');return;}
+  const cf={id:generateId(),label,type,applies};
+  if(type==='select'){const opts=document.getElementById('cf-options').value.split(',').map(o=>o.trim()).filter(Boolean);if(!opts.length){showToast('Add at least one option');return;}cf.options=opts.slice(0,20);}
+  STATE.data.customFields.push(cf);saveData();closeModal('cf-modal');renderCustomFieldsSettings();showToast('Custom field added');
 }
-
-function saveCustomField() {
-  const label = document.getElementById('cf-label').value.trim();
-  const type = document.getElementById('cf-type').value;
-  const applies = document.getElementById('cf-applies').value;
-  if (!label) { showToast('Enter a field label'); return; }
-  if (label.length > 50) { showToast('Label too long'); return; }
-  const cf = { id: generateId(), label, type, applies };
-  if (type === 'select') {
-    const opts = document.getElementById('cf-options').value.split(',').map(o=>o.trim()).filter(Boolean);
-    if (!opts.length) { showToast('Add at least one option'); return; }
-    cf.options = opts.slice(0,20); // max 20 options
-  }
-  STATE.data.customFields.push(cf);
-  saveData();
-  closeModal('cf-modal');
-  renderCustomFieldsSettings();
-  showToast('Custom field added');
-}
-
-function deleteCustomField(id) {
-  if (!confirm('Delete this custom field? Existing data will be preserved but hidden.')) return;
-  STATE.data.customFields = STATE.data.customFields.filter(f => f.id !== id);
-  saveData();
-  renderCustomFieldsSettings();
-  showToast('Field deleted');
+function deleteCustomField(id){
+  if(!confirm('Delete this custom field?'))return;
+  STATE.data.customFields=STATE.data.customFields.filter(f=>f.id!==id);
+  saveData();renderCustomFieldsSettings();showToast('Field deleted');
 }
 
 // ════════════════════════════════════════════
 // INVITE / MEMBERS
 // ════════════════════════════════════════════
-function openInviteModal() { openModal('invite-modal'); document.getElementById('invite-result').style.display='none'; }
-
-function generateInvite() {
-  const email = document.getElementById('invite-email').value.trim();
-  const name = document.getElementById('invite-name').value.trim();
-  if (!email || !email.includes('@')) { showToast('Enter a valid email'); return; }
-  if (!name) { showToast('Enter a nickname'); return; }
-  if (name.length > 30) { showToast('Nickname too long'); return; }
-  if ((STATE.data.members||[]).length >= 20) { showToast('Max 20 members'); return; }
-
-  const token = btoa(JSON.stringify({ adminId: STATE.user.id, adminEmail: STATE.user.email, name: name.slice(0,30), ts: Date.now() }));
-  const link = window.location.href.split('?')[0] + '?invite=' + encodeURIComponent(token);
-  document.getElementById('invite-link-text').textContent = link;
-  document.getElementById('invite-result').style.display = 'block';
-
-  if (!STATE.data.members) STATE.data.members = [];
-  if (!STATE.data.members.find(m => m.email === email)) {
-    STATE.data.members.push({ id: generateId(), name: name.slice(0,30), email });
-    saveData();
-    renderAdminUsers();
-    renderAdminSwitcher();
-  }
+function openInviteModal(){openModal('invite-modal');document.getElementById('invite-result').style.display='none';}
+function generateInvite(){
+  const email=document.getElementById('invite-email').value.trim();
+  const name=document.getElementById('invite-name').value.trim();
+  if(!email||!email.includes('@')){showToast('Enter a valid email');return;}
+  if(!name){showToast('Enter a nickname');return;}
+  if(name.length>30){showToast('Nickname too long');return;}
+  if((STATE.data.members||[]).length>=20){showToast('Max 20 members');return;}
+  const token=btoa(JSON.stringify({adminId:STATE.user.id,adminEmail:STATE.user.email,name:name.slice(0,30),ts:Date.now()}));
+  const link=window.location.href.split('?')[0]+'?invite='+encodeURIComponent(token);
+  document.getElementById('invite-link-text').textContent=link;
+  document.getElementById('invite-result').style.display='block';
+  if(!STATE.data.members)STATE.data.members=[];
+  if(!STATE.data.members.find(m=>m.email===email)){STATE.data.members.push({id:generateId(),name:name.slice(0,30),email});saveData();renderAdminUsers();renderAdminSwitcher();}
 }
+function copyInviteLink(){const text=document.getElementById('invite-link-text').textContent;navigator.clipboard.writeText(text).then(()=>showToast('Link copied!')).catch(()=>showToast('Copy failed'));}
+function removeMember(id){if(!confirm('Remove this member?'))return;STATE.data.members=(STATE.data.members||[]).filter(m=>m.id!==id);saveData();renderAdminUsers();renderAdminSwitcher();showToast('Member removed');}
 
-function copyInviteLink() {
-  const text = document.getElementById('invite-link-text').textContent;
-  navigator.clipboard.writeText(text).then(() => showToast('Link copied!')).catch(() => showToast('Copy failed — select text manually'));
-}
-
-function removeMember(id) {
-  if (!confirm('Remove this member from your view?')) return;
-  STATE.data.members = (STATE.data.members||[]).filter(m => m.id !== id);
-  saveData();
-  renderAdminUsers();
-  renderAdminSwitcher();
-  showToast('Member removed');
-}
-
-function checkInviteToken() {
-  const params = new URLSearchParams(window.location.search);
-  const token = params.get('invite');
-  if (!token) return;
-  try {
-    const data = JSON.parse(atob(decodeURIComponent(token)));
-    if (!data.adminId || !data.adminEmail) return;
-    // Clean URL
-    window.history.replaceState({}, '', window.location.pathname);
-    showToast('Invite accepted! Sign in to continue.');
-    STATE._pendingInvite = data;
-  } catch(e) {
-    showToast('Invalid invite link');
-  }
+function checkInviteToken(){
+  const params=new URLSearchParams(window.location.search);
+  const token=params.get('invite');if(!token)return;
+  try{const data=JSON.parse(atob(decodeURIComponent(token)));if(!data.adminId)return;window.history.replaceState({},'',window.location.pathname);showToast('Invite accepted! Sign in to continue.');STATE._pendingInvite=data;}catch(e){showToast('Invalid invite link');}
 }
 
 // ════════════════════════════════════════════
-// MODAL HELPERS
+// MODALS
 // ════════════════════════════════════════════
-function openModal(id) { document.getElementById(id).classList.add('open'); }
-function closeModal(id) {
-  document.getElementById(id).classList.remove('open');
-  if (id === 'dial-modal') {
-    // Clean up dial event listeners
-    const wrap = document.getElementById('dial-wrap');
-    if (wrap) {
-      wrap.replaceWith(wrap.cloneNode(true));
-    }
-  }
-}
-
-// Close modals on overlay click
-document.querySelectorAll('.modal-overlay').forEach(overlay => {
-  overlay.addEventListener('click', e => { if (e.target === overlay) closeModal(overlay.id); });
-});
-
-function openFilterModal() { showToast('Filter: use the pills above to filter by period'); }
+function openModal(id){document.getElementById(id).classList.add('open');}
+function closeModal(id){document.getElementById(id).classList.remove('open');if(id==='entry-modal'){STATE.editingTxnId=null;closeTagDropdown();}}
+document.querySelectorAll('.modal-overlay').forEach(overlay=>{overlay.addEventListener('click',e=>{if(e.target===overlay)closeModal(overlay.id);});});
+function openFilterModal(){showToast('Use the pills above to filter by period');}
 
 // ════════════════════════════════════════════
 // TOAST
 // ════════════════════════════════════════════
 let toastTimer;
-function showToast(msg) {
-  const el = document.getElementById('toast');
-  safeText(el, msg);
-  el.classList.add('show');
-  clearTimeout(toastTimer);
-  toastTimer = setTimeout(() => el.classList.remove('show'), 3000);
-}
+function showToast(msg){const el=document.getElementById('toast');safeText(el,msg);el.classList.add('show');clearTimeout(toastTimer);toastTimer=setTimeout(()=>el.classList.remove('show'),3000);}
 
 // ════════════════════════════════════════════
 // INIT
 // ════════════════════════════════════════════
-function init() {
+function init(){
+  initTheme();
   checkInviteToken();
-  // Check if we have a cached token (page reload within session)
-  const stored = sessionStorage.getItem('spendly_token');
-  if (stored) {
-    accessToken = stored;
+  const stored=sessionStorage.getItem('spendly_token');
+  if(stored){
+    accessToken=stored;
     showLoading();
-    fetchUserProfile().then(() => loadUserData()).then(() => showApp()).catch(() => {
-      accessToken = null;
-      sessionStorage.removeItem('spendly_token');
+    fetchUserProfile().then(()=>loadUserData()).then(()=>showApp()).catch(()=>{
+      accessToken=null;sessionStorage.removeItem('spendly_token');
       document.getElementById('login-screen').classList.add('active');
     });
   } else {
     document.getElementById('login-screen').classList.add('active');
   }
-  // Show CF options when type changes
-  document.getElementById('cf-type').addEventListener('change', function() {
-    document.getElementById('cf-options-wrap').style.display = this.value==='select' ? 'flex' : 'none';
-  });
+  document.getElementById('cf-type').addEventListener('change',function(){document.getElementById('cf-options-wrap').style.display=this.value==='select'?'flex':'none';});
 }
-
-// Cache token in sessionStorage for page reloads (not localStorage — expires on tab close)
-const origSignIn = signIn;
-// Wrap to save token after sign-in
-window.signIn = async function() {
-  await loadGSI();
-  google.accounts.oauth2.initTokenClient({
-    client_id: GOOGLE_CLIENT_ID,
-    scope: DRIVE_SCOPE,
-    callback: async (resp) => {
-      if (resp.error) { showToast('Sign-in failed: ' + sanitize(resp.error)); return; }
-      accessToken = resp.access_token;
-      sessionStorage.setItem('spendly_token', accessToken);
-      showLoading();
-      await fetchUserProfile();
-      await loadUserData();
-      showApp();
-    }
-  }).requestAccessToken();
-};
 
 init();
 </script>
