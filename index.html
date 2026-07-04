@@ -1115,9 +1115,18 @@ function getDateRange(period){
   if(period==='year')return[new Date(now.getFullYear(),0,1),new Date(now.getFullYear(),11,31,23,59,59)];
   return[new Date(0),new Date()];
 }
-function filterTxns(period,type=null){
-  const[s,e]=getDateRange(period);
-  return STATE.data.transactions.filter(t=>{const d=new Date(t.date);return d>=s&&d<=e&&(type===null||t.type===type);});
+function filterTxns(period, type=null) {
+  const [s,e] = getDateRange(period);
+  return STATE.data.transactions.filter(t => {
+    if (!t.date) return false;
+    // Parse date safely — handle both 'YYYY-MM-DD' and full ISO strings
+    const dateStr = String(t.date).slice(0, 10);
+    const parts = dateStr.split('-');
+    if (parts.length !== 3) return false;
+    const d = new Date(Number(parts[0]), Number(parts[1]) - 1, Number(parts[2]));
+    if (isNaN(d.getTime())) return false;
+    return d >= s && d <= e && (type === null || t.type === type);
+  });
 }
 function getCat(id){return STATE.data.categories.find(c=>c.id===id)||{name:'Other',icon:'📦',color:'#9090a8'};}
 function generateId(){return Date.now().toString(36)+Math.random().toString(36).slice(2,7);}
@@ -1510,8 +1519,11 @@ function renderDashboard(){
   if(delta!==null){safeText(deltaEl,(Number(delta)>0?'▲ ':'▼ ')+Math.abs(delta)+'% vs last month');deltaEl.style.color=Number(delta)>0?'var(--red)':'var(--green)';}
   else{safeText(deltaEl,'First month tracked');deltaEl.style.color='var(--text3)';}
 
-  const hasExpenses=expenses.length>0;
-  const hasTxns=STATE.data.transactions.length>0;
+  const hasExpenses = expenses.length > 0;
+  const hasTxns = STATE.data.transactions.length > 0;
+
+  // Debug: log what's being found (remove after confirming fix works)
+  console.log('Dashboard render — total txns:', STATE.data.transactions.length, '| month expenses:', expenses.length, '| month income:', incomes.length);
 
   renderDonut(expenses,hasExpenses);
   renderTopCats(expenses,hasExpenses);
@@ -1552,7 +1564,14 @@ function renderBarChart(hasData){
   if(canvas)canvas.style.display='block';if(nodata)nodata.style.display='none';
   const now=new Date();const days=new Date(now.getFullYear(),now.getMonth()+1,0).getDate();
   const labels=[],data=[];
-  for(let d=1;d<=days;d++){labels.push(d);data.push(STATE.data.transactions.filter(t=>{const td=new Date(t.date);return t.type==='expense'&&td.getFullYear()===now.getFullYear()&&td.getMonth()===now.getMonth()&&td.getDate()===d;}).reduce((s,t)=>s+Number(t.amount),0));}
+  for(let d=1;d<=days;d++){labels.push(d);data.push(STATE.data.transactions
+      .filter(t => {
+        if (!t.date || t.type !== 'expense') return false;
+        const ds = String(t.date).slice(0,10).split('-');
+        if (ds.length !== 3) return false;
+        return Number(ds[0]) === now.getFullYear() && Number(ds[1]) - 1 === now.getMonth() && Number(ds[2]) === d;
+      })
+      .reduce((s,t) => s + Number(t.amount), 0));
   if(STATE.charts.bar){STATE.charts.bar.destroy();STATE.charts.bar=null;}
   STATE.charts.bar=new Chart(canvas.getContext('2d'),{type:'bar',data:{labels,datasets:[{data,backgroundColor:'rgba(124,108,252,.5)',borderRadius:4,borderSkipped:false}]},options:{plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>' '+fmt(c.raw)}}},scales:{x:{grid:{display:false},ticks:{color:'var(--text3)',font:{size:10}}},y:{grid:{color:'rgba(128,128,128,.1)'},ticks:{color:'var(--text3)',font:{size:10},callback:v=>v?fmt(v):''}}},maintainAspectRatio:true}});
 }
@@ -1602,7 +1621,9 @@ function makeTxnRow(t){
   const cat=getCat(t.category);const div=document.createElement('div');div.className='txn-item';div.onclick=()=>openTxnDetail(t.id);
   const tags=(t.tags||[]).map(tag=>`<span class="txn-tag">${sanitize(tag)}</span>`).join('');
   const timeStr=t.time?` · ${t.time}`:'';
-  div.innerHTML=`<div class="txn-icon" style="background:${cat.color}22">${sanitize(cat.icon)}</div><div class="txn-info"><div class="txn-title">${sanitize(t.title||'Untitled')}</div><div class="txn-meta"><span>${sanitize(cat.name)}${timeStr}</span>${tags}</div></div><div class="txn-amount ${t.type==='expense'?'exp':'inc'}">${t.type==='expense'?'−':'+'} ${fmt(t.amount)}</div>`;
+  div.innerHTML = `<div class="txn-icon" style="background:${cat.color}22">${sanitize(cat.icon)}</div>
+    <div class="txn-info"><div class="txn-title">${sanitize(t.title||'Untitled')}</div><div class="txn-meta"><span>${sanitize(cat.name)}${timeStr}</span>${tags}</div></div>
+    <div class="txn-amount ${t.type==='expense'?'exp':'inc'}" style="font-size:18px;">${t.type==='expense'?'−':'+'} ${fmt(t.amount)}</div>`;
   return div;
 }
 
@@ -1613,7 +1634,11 @@ function renderHistory(){
   const[s,e]=getDateRange(STATE.historyPeriod);
   let txns=STATE.data.transactions.filter(t=>{const d=new Date(t.date);return d>=s&&d<=e;});
   if(q)txns=txns.filter(t=>(t.title||'').toLowerCase().includes(q)||(t.notes||'').toLowerCase().includes(q)||(t.tags||[]).some(tag=>tag.toLowerCase().includes(q)));
-  txns.sort((a,b)=>new Date(b.date)-new Date(a.date));
+  txns.sort((a,b) => {
+    const da = new Date(String(a.date).slice(0,10) + 'T' + (a.time || '00:00'));
+    const db = new Date(String(b.date).slice(0,10) + 'T' + (b.time || '00:00'));
+    return db - da;
+  });
   const el=document.getElementById('history-list');el.innerHTML='';
   if(!txns.length){el.innerHTML=`<div class="empty-state"><div class="empty-icon">🔍</div><div class="empty-title">No transactions found</div></div>`;return;}
   let lastDate='';
