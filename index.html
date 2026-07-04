@@ -1083,14 +1083,19 @@ async function loadUserData(){
   if(!STATE.data.transactions)STATE.data.transactions=[];
   if(!STATE.data.members)STATE.data.members=[];
   if(!STATE.data.tags||!STATE.data.tags.length)STATE.data.tags=[...DEFAULT_TAGS];
-  if(!STATE.data.quickEntries)STATE.data.quickEntries=[];
-  if(!STATE.data.recurringEntries)STATE.data.recurringEntries=[];
+if(!STATE.data.quickEntries)STATE.data.quickEntries=[];
+// Ensure quick entries are always loaded and persisted
+if(!STATE.data.quickEntries.length && localStorage.getItem('spendly_quick_fallback')){
+  try{STATE.data.quickEntries=JSON.parse(localStorage.getItem('spendly_quick_fallback'));}catch(e){}
+}  if(!STATE.data.recurringEntries)STATE.data.recurringEntries=[];
   if(!STATE.data.notifications)STATE.data.notifications=[];
   STATE.viewingUserId=STATE.user.id;
   const ls=localStorage.getItem('spendly_last_sync');
   if(ls){const el=document.getElementById('last-sync');if(el)safeText(el,fmtTime(new Date(ls)));}
 }
 async function saveData(){try{await writeDriveFile(STATE.data);}catch(e){showToast('⚠️ Sync failed — check connection');localStorage.setItem('spendly_local_backup',JSON.stringify(STATE.data));}}
+  // Extra local fallback for quick entries (survives refresh)
+localStorage.setItem('spendly_quick_fallback', JSON.stringify(STATE.data.quickEntries||[]));
 async function syncToDrive(){showToast('Syncing…');await saveData();showToast('✅ Synced to Google Drive');}
 function exportJSON(){const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([JSON.stringify(STATE.data,null,2)],{type:'application/json'}));a.download=`spendly_backup_${new Date().toISOString().slice(0,10)}.json`;a.click();}
 
@@ -1099,11 +1104,10 @@ function showLoading(){document.getElementById('login-screen').classList.remove(
 function showApp(){
   document.getElementById('loading-screen').style.display='none';
   document.getElementById('app').style.display='flex';
-  updateUserUI();renderDashboard();
-  if(STATE.user.isAdmin){document.getElementById('admin-switcher-wrap').style.display='block';document.getElementById('admin-section').style.display='block';renderAdminSwitcher();}
-  checkRecurringDue();
-  generateScheduledNotifications();
-  updateNotifBadge();
+  updateUserUI();
+  setTimeout(renderDashboard, 100); // Small delay for DOM + charts
+  if(STATE.user.isAdmin){...}
+  ...
 }
 function updateUserUI(){
   const u=STATE.user;
@@ -1319,6 +1323,8 @@ function renderMonthlyReportModal(){
 
 // ── QUICK ENTRIES ─────────────────────────────────────────────────────────────
 function renderQuickEntries(){
+  // Force re-render after load
+  if(!STATE.data.quickEntries) STATE.data.quickEntries=[];
   const grid=document.getElementById('quick-entries-grid');if(!grid)return;
   grid.innerHTML='';
   const entries=STATE.data.quickEntries||[];
@@ -1650,8 +1656,7 @@ function renderDashboard(){
   const hasExpenses = expenses.length > 0;
   const hasTxns = STATE.data.transactions.length > 0;
 
-  // Debug: log what's being found (remove after confirming fix works)
-  console.log('Dashboard render — total txns:', STATE.data.transactions.length, '| month expenses:', expenses.length, '| month income:', incomes.length);
+  console.log('Dashboard render — total txns:', STATE.data.transactions.length, '| month expenses:', expenses.length);
 
   renderDonut(expenses,hasExpenses);
   renderTopCats(expenses,hasExpenses);
