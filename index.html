@@ -1564,14 +1564,17 @@ function renderBarChart(hasData){
   if(canvas)canvas.style.display='block';if(nodata)nodata.style.display='none';
   const now=new Date();const days=new Date(now.getFullYear(),now.getMonth()+1,0).getDate();
   const labels=[],data=[];
-  for(let d=1;d<=days;d++){labels.push(d);data.push(STATE.data.transactions
-      .filter(t => {
-        if (!t.date || t.type !== 'expense') return false;
-        const ds = String(t.date).slice(0,10).split('-');
-        if (ds.length !== 3) return false;
-        return Number(ds[0]) === now.getFullYear() && Number(ds[1]) - 1 === now.getMonth() && Number(ds[2]) === d;
+  for(let d=1;d<=days;d++){
+    labels.push(d);
+    data.push(STATE.data.transactions
+      .filter(t=>{
+        if(!t.date||t.type!=='expense')return false;
+        const ds=String(t.date).slice(0,10).split('-');
+        if(ds.length!==3)return false;
+        return Number(ds[0])===now.getFullYear()&&Number(ds[1])-1===now.getMonth()&&Number(ds[2])===d;
       })
-      .reduce((s,t) => s + Number(t.amount), 0));
+      .reduce((s,t)=>s+Number(t.amount),0));
+  }
   if(STATE.charts.bar){STATE.charts.bar.destroy();STATE.charts.bar=null;}
   STATE.charts.bar=new Chart(canvas.getContext('2d'),{type:'bar',data:{labels,datasets:[{data,backgroundColor:'rgba(124,108,252,.5)',borderRadius:4,borderSkipped:false}]},options:{plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>' '+fmt(c.raw)}}},scales:{x:{grid:{display:false},ticks:{color:'var(--text3)',font:{size:10}}},y:{grid:{color:'rgba(128,128,128,.1)'},ticks:{color:'var(--text3)',font:{size:10},callback:v=>v?fmt(v):''}}},maintainAspectRatio:true}});
 }
