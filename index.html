@@ -85,7 +85,7 @@
   .section-title { font-family:var(--font-display); font-size:11px; font-weight:700; letter-spacing:.1em; text-transform:uppercase; color:var(--text3); margin-bottom:10px; }
 
   /* ── SUMMARY STRIP ── */
-  .summary-strip { display:grid; grid-template-columns:1fr 1fr; gap:10px; padding:0 16px 16px; }
+  .summary-strip { display:grid; grid-template-columns:1fr 1fr 1fr; gap:10px; padding:0 16px 16px; }
   .summary-card { background:var(--bg2); border:1px solid var(--border); border-radius:var(--radius); padding:14px 16px; }
   .summary-card.accent { background:linear-gradient(135deg,rgba(124,108,252,.2),rgba(56,217,245,.1)); border-color:rgba(124,108,252,.3); }
   .summary-label { font-size:11px; color:var(--text2); font-weight:500; margin-bottom:4px; }
@@ -338,11 +338,6 @@
       <div class="summary-card">
         <div class="summary-label">Month Income</div>
         <div class="summary-value green" id="sum-month-income">₹0</div>
-        <div class="summary-delta" id="sum-income-delta"></div>
-      </div>
-      <div class="summary-card">
-        <div class="summary-label">Net Savings</div>
-        <div class="summary-value accent" id="sum-savings">₹0</div>
       </div>
       <div class="summary-card">
         <div class="summary-label">Today's Spend</div>
@@ -354,30 +349,46 @@
     <div class="section">
       <div class="section-title">Spending by Category</div>
       <div class="card" style="padding:12px">
-        <div style="display:flex;gap:12px;align-items:center">
-          <div style="flex:0 0 140px;height:140px;position:relative">
+        <!-- No data state -->
+        <div id="donut-nodata" style="display:flex;flex-direction:column;align-items:center;padding:28px 16px;gap:8px;text-align:center;">
+          <div style="font-size:40px;opacity:.3">🍩</div>
+          <div style="font-size:12px;color:var(--text3)">No expenses this month yet</div>
+        </div>
+        <!-- Chart state (hidden until data exists) -->
+        <div id="donut-chart-wrap" style="display:none;flex-direction:row;gap:12px;align-items:center;">
+          <div style="flex:0 0 140px;height:140px;position:relative;">
             <canvas id="donut-chart"></canvas>
-            <div style="position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;pointer-events:none">
-              <div style="font-size:10px;color:var(--text3);font-family:var(--font-display);font-weight:700;letter-spacing:.06em">TOTAL</div>
-              <div id="donut-center" style="font-family:var(--font-mono);font-size:16px;font-weight:500;color:var(--red)">₹0</div>
+            <div style="position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;pointer-events:none;">
+              <div style="font-size:10px;color:var(--text3);font-family:var(--font-display);font-weight:700;letter-spacing:.06em;">TOTAL</div>
+              <div id="donut-center" style="font-family:var(--font-mono);font-size:16px;font-weight:500;color:var(--red);">₹0</div>
             </div>
           </div>
-          <div id="category-legend" style="flex:1;display:flex;flex-direction:column;gap:7px;overflow:hidden"></div>
+          <div id="category-legend" style="flex:1;display:flex;flex-direction:column;gap:7px;overflow:hidden;"></div>
         </div>
       </div>
     </div>
 
-    <!-- Top categories progress -->
+    <!-- Top categories -->
     <div class="section">
       <div class="section-title">Top Categories</div>
-      <div class="card" style="display:flex;flex-direction:column;gap:12px;" id="top-cats"></div>
+      <div class="card" style="padding:0;">
+        <div id="topcats-nodata" style="display:flex;flex-direction:column;align-items:center;padding:28px 16px;gap:8px;text-align:center;">
+          <div style="font-size:40px;opacity:.3">📂</div>
+          <div style="font-size:12px;color:var(--text3)">Add expenses to see category breakdown</div>
+        </div>
+        <div id="top-cats" style="display:none;flex-direction:column;gap:12px;padding:16px;"></div>
+      </div>
     </div>
 
-    <!-- Daily chart -->
+    <!-- Daily trend -->
     <div class="section">
       <div class="section-title">Daily Trend</div>
-      <div class="card" style="padding:12px">
-        <canvas id="bar-chart" height="100"></canvas>
+      <div class="card" style="padding:12px;">
+        <div id="bar-nodata" style="display:flex;flex-direction:column;align-items:center;padding:28px 16px;gap:8px;text-align:center;">
+          <div style="font-size:40px;opacity:.3">📈</div>
+          <div style="font-size:12px;color:var(--text3)">Daily trend will appear here</div>
+        </div>
+        <canvas id="bar-chart" height="100" style="display:none;"></canvas>
       </div>
     </div>
 
@@ -1030,9 +1041,8 @@ function renderDashboard() {
   const incomes   = filterTxns('month', 'income');
   const todayExp  = filterTxns('today', 'expense');
 
-  const totalExp  = expenses.reduce((s,t) => s + Number(t.amount), 0);
-  const totalInc  = incomes.reduce((s,t)  => s + Number(t.amount), 0);
-  const savings   = totalInc - totalExp;
+  const totalExp   = expenses.reduce((s,t) => s + Number(t.amount), 0);
+  const totalInc   = incomes.reduce((s,t)  => s + Number(t.amount), 0);
   const todayTotal = todayExp.reduce((s,t) => s + Number(t.amount), 0);
 
   const lastExpenses = filterTxns('last', 'expense');
@@ -1041,12 +1051,7 @@ function renderDashboard() {
 
   safeText(document.getElementById('sum-month-spend'), fmt(totalExp));
   safeText(document.getElementById('sum-month-income'), fmt(totalInc));
-  safeText(document.getElementById('sum-savings'), savings >= 0 ? fmt(savings) : '-' + fmt(Math.abs(savings)));
   safeText(document.getElementById('sum-today'), fmt(todayTotal));
-
-  // Savings colour: green if positive, red if negative, grey if zero
-  const savingsEl = document.getElementById('sum-savings');
-  savingsEl.className = 'summary-value ' + (savings > 0 ? 'green' : savings < 0 ? 'red' : 'accent');
 
   const deltaEl = document.getElementById('sum-month-delta');
   if (delta !== null) {
@@ -1072,78 +1077,82 @@ function noDataPlaceholder(message) {
 }
 
 function renderDonut(expenses, hasData) {
-  const el = document.getElementById('donut-chart').parentElement;
-  if (STATE.charts.donut) { STATE.charts.donut.destroy(); STATE.charts.donut = null; }
-
+  const wrap = document.getElementById('donut-chart-wrap');
+  const nodata = document.getElementById('donut-nodata');
   if (!hasData || !expenses.length) {
-    el.parentElement.innerHTML = noDataPlaceholder('No expenses this month yet');
-    el.parentElement.id = 'donut-placeholder';
+    if (wrap) wrap.style.display = 'none';
+    if (nodata) nodata.style.display = 'flex';
+    if (STATE.charts.donut) { STATE.charts.donut.destroy(); STATE.charts.donut = null; }
     return;
   }
-
+  if (wrap) wrap.style.display = 'flex';
+  if (nodata) nodata.style.display = 'none';
   const bycat = {};
   expenses.forEach(t => { bycat[t.category] = (bycat[t.category]||0) + Number(t.amount); });
-  const cats = Object.entries(bycat).sort((a,b)=>b[1]-a[1]).slice(0,6);
-  const total = cats.reduce((s,[,v])=>s+v, 0);
-
-  const ctx = document.getElementById('donut-chart')?.getContext('2d');
-  if (!ctx) return;
+  const cats = Object.entries(bycat).sort((a,b) => b[1]-a[1]).slice(0,6);
+  const total = cats.reduce((s,[,v]) => s+v, 0);
+  if (STATE.charts.donut) { STATE.charts.donut.destroy(); STATE.charts.donut = null; }
+  const ctx = document.getElementById('donut-chart').getContext('2d');
   STATE.charts.donut = new Chart(ctx, {
     type:'doughnut',
-    data:{ labels: cats.map(([id])=>getCat(id).name), datasets:[{ data: cats.map(([,v])=>v), backgroundColor: cats.map(([id])=>getCat(id).color), borderWidth:0, hoverOffset:6 }] },
+    data:{ labels:cats.map(([id])=>getCat(id).name), datasets:[{ data:cats.map(([,v])=>v), backgroundColor:cats.map(([id])=>getCat(id).color), borderWidth:0, hoverOffset:6 }] },
     options:{ cutout:'72%', plugins:{ legend:{display:false}, tooltip:{callbacks:{label:c=>' '+fmt(c.raw)}} } }
   });
   safeText(document.getElementById('donut-center'), fmt(total));
-
   const legend = document.getElementById('category-legend');
-  if (!legend) return;
   legend.innerHTML = '';
   cats.slice(0,5).forEach(([id,val]) => {
-    const cat = getCat(id);
-    const pct = total ? Math.round(val/total*100) : 0;
-    const item = document.createElement('div');
-    item.style.cssText = 'display:flex;align-items:center;gap:6px;font-size:12px;';
+    const cat = getCat(id); const pct = total ? Math.round(val/total*100) : 0;
+    const item = document.createElement('div'); item.style.cssText = 'display:flex;align-items:center;gap:6px;font-size:12px;';
     item.innerHTML = `<div style="width:8px;height:8px;border-radius:50%;background:${cat.color};flex-shrink:0"></div><span style="flex:1;color:var(--text2);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${sanitize(cat.name)}</span><span style="font-family:var(--font-mono);color:var(--text3)">${pct}%</span>`;
     legend.appendChild(item);
   });
 }
 
 function renderTopCats(expenses, hasData) {
-  const el = document.getElementById('top-cats');
-  if (!hasData || !expenses.length) { el.innerHTML = noDataPlaceholder('Add expenses to see category breakdown'); return; }
+  const wrap = document.getElementById('top-cats');
+  const nodata = document.getElementById('topcats-nodata');
+  if (!hasData || !expenses.length) {
+    if (wrap) wrap.style.display = 'none';
+    if (nodata) nodata.style.display = 'flex';
+    return;
+  }
+  if (nodata) nodata.style.display = 'none';
+  if (wrap) wrap.style.display = 'flex';
+  wrap.innerHTML = '';
   const bycat = {};
   expenses.forEach(t => { bycat[t.category] = (bycat[t.category]||0) + Number(t.amount); });
-  const total = Object.values(bycat).reduce((s,v)=>s+v, 0);
-  const top = Object.entries(bycat).sort((a,b)=>b[1]-a[1]).slice(0,5);
-  el.innerHTML = '';
-  top.forEach(([id,val]) => {
-    const cat = getCat(id);
-    const pct = total ? Math.round(val/total*100) : 0;
+  const total = Object.values(bycat).reduce((s,v) => s+v, 0);
+  Object.entries(bycat).sort((a,b) => b[1]-a[1]).slice(0,5).forEach(([id,val]) => {
+    const cat = getCat(id); const pct = total ? Math.round(val/total*100) : 0;
     const row = document.createElement('div'); row.className = 'prog-row';
     row.innerHTML = `<div class="prog-label"><div class="prog-label-name"><span>${sanitize(cat.icon)}</span><span>${sanitize(cat.name)}</span></div><span style="font-family:var(--font-mono);font-size:13px">${fmt(val)}</span></div><div class="prog-bar-bg"><div class="prog-bar-fill" style="width:${pct}%;background:${cat.color}"></div></div>`;
-    el.appendChild(row);
+    wrap.appendChild(row);
   });
 }
 
 function renderBarChart(hasData) {
-  const el = document.getElementById('bar-chart');
-  if (!el) return;
-  if (STATE.charts.bar) { STATE.charts.bar.destroy(); STATE.charts.bar = null; }
-  if (!hasData) { el.parentElement.innerHTML = noDataPlaceholder('Daily trend will appear here'); return; }
-
+  const canvas = document.getElementById('bar-chart');
+  const nodata = document.getElementById('bar-nodata');
+  if (!hasData) {
+    if (canvas) canvas.style.display = 'none';
+    if (nodata) nodata.style.display = 'flex';
+    if (STATE.charts.bar) { STATE.charts.bar.destroy(); STATE.charts.bar = null; }
+    return;
+  }
+  if (canvas) canvas.style.display = 'block';
+  if (nodata) nodata.style.display = 'none';
   const now = new Date();
   const days = new Date(now.getFullYear(), now.getMonth()+1, 0).getDate();
   const labels = [], data = [];
   for (let d=1; d<=days; d++) {
     labels.push(d);
-    const dayTotal = STATE.data.transactions
-      .filter(t => { const td = new Date(t.date); return t.type==='expense' && td.getFullYear()===now.getFullYear() && td.getMonth()===now.getMonth() && td.getDate()===d; })
-      .reduce((s,t) => s + Number(t.amount), 0);
-    data.push(dayTotal);
+    data.push(STATE.data.transactions
+      .filter(t => { const td=new Date(t.date); return t.type==='expense' && td.getFullYear()===now.getFullYear() && td.getMonth()===now.getMonth() && td.getDate()===d; })
+      .reduce((s,t) => s+Number(t.amount), 0));
   }
-  const ctx = document.getElementById('bar-chart')?.getContext('2d');
-  if (!ctx) return;
-  STATE.charts.bar = new Chart(ctx, {
+  if (STATE.charts.bar) { STATE.charts.bar.destroy(); STATE.charts.bar = null; }
+  STATE.charts.bar = new Chart(canvas.getContext('2d'), {
     type:'bar',
     data:{ labels, datasets:[{ data, backgroundColor:'rgba(124,108,252,.5)', borderRadius:4, borderSkipped:false }] },
     options:{ plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>' '+fmt(c.raw)}}}, scales:{ x:{grid:{display:false},ticks:{color:'var(--text3)',font:{size:10}}}, y:{grid:{color:'rgba(128,128,128,.1)'},ticks:{color:'var(--text3)',font:{size:10},callback:v=>v?fmt(v):''}} }, maintainAspectRatio:true }
