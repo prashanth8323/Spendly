@@ -834,18 +834,27 @@
       <button class="icon-btn" onclick="closeModal('quick-manage-modal')">✕</button>
     </div>
     <div class="modal-body">
-      <p style="font-size:13px;color:var(--text2)">Tap any saved entry to remove it. Use the form below to add a new one. You can save unlimited favourites.</p>
+      <p style="font-size:13px;color:var(--text2)">Saved entries appear on the dashboard for one-tap logging. Unlimited favourites.</p>
       <div id="quick-manage-list" style="display:flex;flex-direction:column;gap:0;background:var(--bg3);border:1px solid var(--border);border-radius:var(--radius-sm);overflow:hidden;margin-bottom:4px;"></div>
       <div style="background:var(--bg3);border:1px solid var(--border);border-radius:var(--radius);padding:14px;display:flex;flex-direction:column;gap:10px;">
         <div style="font-size:12px;font-weight:700;color:var(--text2);font-family:var(--font-display);letter-spacing:.04em;text-transform:uppercase;">Add New Quick Entry</div>
-        <div class="field"><label>Name</label><input type="text" id="qe-name" placeholder="e.g. Morning Coffee"></div>
+        <div class="type-toggle">
+          <button class="type-btn active-exp" id="qe-type-exp" onclick="setQEType('expense')">💸 Expense</button>
+          <button class="type-btn" id="qe-type-inc" onclick="setQEType('income')">💰 Income</button>
+        </div>
+        <div class="field"><label>Name</label><input type="text" id="qe-name" placeholder="e.g. Morning Coffee" autocomplete="off"></div>
         <div class="field-row">
-          <div class="field"><label>Amount (₹)</label><input type="number" id="qe-amount" placeholder="0" min="0" inputmode="decimal"></div>
+          <div class="field"><label>Default Amount (₹)</label><input type="number" id="qe-amount" placeholder="0" min="0" inputmode="decimal"></div>
           <div class="field"><label>Emoji Icon</label><input type="text" id="qe-icon" placeholder="☕" maxlength="2"></div>
         </div>
         <div class="field"><label>Category</label><select id="qe-category"></select></div>
-        <div class="field"><label>Type</label>
-          <select id="qe-type"><option value="expense">Expense</option><option value="income">Income</option></select>
+        <div class="field"><label>Tags</label>
+          <div style="position:relative">
+            <div id="qe-tags-wrap" style="display:flex;flex-wrap:wrap;gap:6px;padding:8px 10px;background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius-sm);min-height:42px;cursor:pointer;" onclick="toggleQETagDropdown()"></div>
+            <div id="qe-tag-dropdown" style="display:none;position:absolute;top:100%;left:0;right:0;background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius-sm);z-index:50;max-height:160px;overflow-y:auto;margin-top:4px;box-shadow:var(--shadow);">
+              <div id="qe-tag-dropdown-list"></div>
+            </div>
+          </div>
         </div>
         <div class="field"><label>Payment Method</label>
           <select id="qe-payment">
@@ -854,6 +863,7 @@
             <option value="Net Banking">Net Banking</option><option value="Other">Other</option>
           </select>
         </div>
+        <div class="field"><label>Notes (optional default)</label><textarea id="qe-notes" rows="2" placeholder="Optional default notes…"></textarea></div>
         <button class="btn btn-primary btn-full" onclick="saveQuickEntry()">Save Quick Entry</button>
       </div>
     </div>
@@ -873,6 +883,17 @@
       <div class="field-row">
         <div class="field"><label>Date</label><input type="date" id="qc-date"></div>
         <div class="field"><label>Time</label><input type="time" id="qc-time"></div>
+      </div>
+      <div class="field"><label>Category</label><select id="qc-category"></select></div>
+      <div class="field"><label>Tags</label>
+        <div id="qc-tags-display" style="display:flex;flex-wrap:wrap;gap:6px;padding:8px 10px;background:var(--bg3);border:1px solid var(--border);border-radius:var(--radius-sm);min-height:42px;"></div>
+      </div>
+      <div class="field"><label>Payment Method</label>
+        <select id="qc-payment">
+          <option value="UPI">UPI</option><option value="Cash">Cash</option>
+          <option value="Credit Card">Credit Card</option><option value="Debit Card">Debit Card</option>
+          <option value="Net Banking">Net Banking</option><option value="Other">Other</option>
+        </select>
       </div>
       <div class="field"><label>Notes</label><textarea id="qc-notes" placeholder="Optional…" rows="2"></textarea></div>
       <button class="btn btn-primary btn-full" onclick="confirmQuickEntry()">Save Entry</button>
@@ -1106,26 +1127,37 @@ function showPage(name){
 // ── HELPERS ───────────────────────────────────────────────────────────────────
 const fmt=n=>'₹'+Math.abs(n).toLocaleString('en-IN',{maximumFractionDigits:0});
 const fmtFull=n=>'₹'+Math.abs(n).toLocaleString('en-IN',{minimumFractionDigits:2,maximumFractionDigits:2});
-function getDateRange(period){
-  const now=new Date(),today=new Date(now.getFullYear(),now.getMonth(),now.getDate());
-  if(period==='today')return[today,new Date(today.getTime()+86399999)];
-  if(period==='week'){const d=new Date(today);d.setDate(d.getDate()-d.getDay());return[d,new Date(d.getTime()+7*86400000-1)];}
-  if(period==='month')return[new Date(now.getFullYear(),now.getMonth(),1),new Date(now.getFullYear(),now.getMonth()+1,0,23,59,59)];
-  if(period==='last')return[new Date(now.getFullYear(),now.getMonth()-1,1),new Date(now.getFullYear(),now.getMonth(),0,23,59,59)];
-  if(period==='year')return[new Date(now.getFullYear(),0,1),new Date(now.getFullYear(),11,31,23,59,59)];
-  return[new Date(0),new Date()];
+// Parse a stored date string 'YYYY-MM-DD' into a local midnight Date safely
+// Works identically on Safari, Chrome, and all mobile browsers
+function parseDateStr(str){
+  if(!str)return null;
+  const s=String(str).slice(0,10).split('-');
+  if(s.length!==3)return null;
+  const yr=Number(s[0]),mo=Number(s[1])-1,dy=Number(s[2]);
+  if(isNaN(yr)||isNaN(mo)||isNaN(dy))return null;
+  return new Date(yr,mo,dy,0,0,0,0);
 }
-function filterTxns(period, type=null) {
-  const [s,e] = getDateRange(period);
-  return STATE.data.transactions.filter(t => {
-    if (!t.date) return false;
-    // Parse date safely — handle both 'YYYY-MM-DD' and full ISO strings
-    const dateStr = String(t.date).slice(0, 10);
-    const parts = dateStr.split('-');
-    if (parts.length !== 3) return false;
-    const d = new Date(Number(parts[0]), Number(parts[1]) - 1, Number(parts[2]));
-    if (isNaN(d.getTime())) return false;
-    return d >= s && d <= e && (type === null || t.type === type);
+// Return [startDate, endDate] both at local midnight / end-of-day
+function getDateRange(period){
+  const now=new Date();
+  const yr=now.getFullYear(),mo=now.getMonth(),dy=now.getDate();
+  if(period==='today')return[new Date(yr,mo,dy,0,0,0),new Date(yr,mo,dy,23,59,59,999)];
+  if(period==='week'){
+    const sun=new Date(yr,mo,dy,0,0,0);sun.setDate(sun.getDate()-sun.getDay());
+    const sat=new Date(sun);sat.setDate(sat.getDate()+6);sat.setHours(23,59,59,999);
+    return[sun,sat];
+  }
+  if(period==='month')return[new Date(yr,mo,1,0,0,0),new Date(yr,mo+1,0,23,59,59,999)];
+  if(period==='last')return[new Date(yr,mo-1,1,0,0,0),new Date(yr,mo,0,23,59,59,999)];
+  if(period==='year')return[new Date(yr,0,1,0,0,0),new Date(yr,11,31,23,59,59,999)];
+  return[new Date(0),new Date(9999,11,31)];
+}
+function filterTxns(period,type=null){
+  const[s,e]=getDateRange(period);
+  return STATE.data.transactions.filter(t=>{
+    const d=parseDateStr(t.date);
+    if(!d)return false;
+    return d>=s&&d<=e&&(type===null||t.type===type);
   });
 }
 function getCat(id){return STATE.data.categories.find(c=>c.id===id)||{name:'Other',icon:'📦',color:'#9090a8'};}
@@ -1203,21 +1235,17 @@ function generateScheduledNotifications(){
 }
 
 function generateWeeklyTrendNotif(now){
-  // Current week spend
   const[ws,we]=getDateRange('week');
-  const currWeek=STATE.data.transactions.filter(t=>{const d=new Date(t.date);return d>=ws&&d<=we&&t.type==='expense';}).reduce((s,t)=>s+Number(t.amount),0);
-
-  // Previous 3 weeks
+  const currWeek=STATE.data.transactions.filter(t=>{const d=parseDateStr(t.date);return d&&d>=ws&&d<=we&&t.type==='expense';}).reduce((s,t)=>s+Number(t.amount),0);
   const weekTotals=[];
   for(let i=1;i<=3;i++){
     const wStart=new Date(ws);wStart.setDate(wStart.getDate()-7*i);
     const wEnd=new Date(we);wEnd.setDate(wEnd.getDate()-7*i);
-    const total=STATE.data.transactions.filter(t=>{const d=new Date(t.date);return d>=wStart&&d<=wEnd&&t.type==='expense';}).reduce((s,t)=>s+Number(t.amount),0);
+    const total=STATE.data.transactions.filter(t=>{const d=parseDateStr(t.date);return d&&d>=wStart&&d<=wEnd&&t.type==='expense';}).reduce((s,t)=>s+Number(t.amount),0);
     weekTotals.push(total);
   }
   const avg3=weekTotals.reduce((s,v)=>s+v,0)/3;
   if(currWeek===0&&avg3===0)return;
-
   let title='📅 Weekly Spend Summary';
   let text=`This week: ${fmt(currWeek)}. `;
   if(avg3>0){
@@ -1232,15 +1260,13 @@ function generateWeeklyTrendNotif(now){
 
 function generateMonthlyReportNotif(now){
   const[ms,me]=getDateRange('month');
-  const exp=STATE.data.transactions.filter(t=>{const d=new Date(t.date);return d>=ms&&d<=me&&t.type==='expense';}).reduce((s,t)=>s+Number(t.amount),0);
-  const inc=STATE.data.transactions.filter(t=>{const d=new Date(t.date);return d>=ms&&d<=me&&t.type==='income';}).reduce((s,t)=>s+Number(t.amount),0);
-
-  // Compare with 3 previous months
+  const exp=STATE.data.transactions.filter(t=>{const d=parseDateStr(t.date);return d&&d>=ms&&d<=me&&t.type==='expense';}).reduce((s,t)=>s+Number(t.amount),0);
+  const inc=STATE.data.transactions.filter(t=>{const d=parseDateStr(t.date);return d&&d>=ms&&d<=me&&t.type==='income';}).reduce((s,t)=>s+Number(t.amount),0);
   const prevTotals=[];
   for(let i=1;i<=3;i++){
-    const ms2=new Date(now.getFullYear(),now.getMonth()-i,1);
-    const me2=new Date(now.getFullYear(),now.getMonth()-i+1,0,23,59,59);
-    const total=STATE.data.transactions.filter(t=>{const d=new Date(t.date);return d>=ms2&&d<=me2&&t.type==='expense';}).reduce((s,t)=>s+Number(t.amount),0);
+    const ms2=new Date(now.getFullYear(),now.getMonth()-i,1,0,0,0);
+    const me2=new Date(now.getFullYear(),now.getMonth()-i+1,0,23,59,59,999);
+    const total=STATE.data.transactions.filter(t=>{const d=parseDateStr(t.date);return d&&d>=ms2&&d<=me2&&t.type==='expense';}).reduce((s,t)=>s+Number(t.amount),0);
     prevTotals.push(total);
   }
   const avg3=prevTotals.reduce((s,v)=>s+v,0)/3;
@@ -1256,48 +1282,39 @@ function openMonthlyReportFromNotif(notif){openModal('monthly-report-modal');ren
 function renderMonthlyReportModal(){
   const now=new Date();
   const[ms,me]=getDateRange('month');
-  const expenses=STATE.data.transactions.filter(t=>{const d=new Date(t.date);return d>=ms&&d<=me&&t.type==='expense';});
-  const incomes=STATE.data.transactions.filter(t=>{const d=new Date(t.date);return d>=ms&&d<=me&&t.type==='income';});
+  const expenses=STATE.data.transactions.filter(t=>{const d=parseDateStr(t.date);return d&&d>=ms&&d<=me&&t.type==='expense';});
+  const incomes=STATE.data.transactions.filter(t=>{const d=parseDateStr(t.date);return d&&d>=ms&&d<=me&&t.type==='income';});
   const totalExp=expenses.reduce((s,t)=>s+Number(t.amount),0);
   const totalInc=incomes.reduce((s,t)=>s+Number(t.amount),0);
   const txCount=expenses.length+incomes.length;
-  const biggest=expenses.sort((a,b)=>Number(b.amount)-Number(a.amount))[0];
-
-  // Top category
+  const biggest=[...expenses].sort((a,b)=>Number(b.amount)-Number(a.amount))[0];
   const bycat={};expenses.forEach(t=>{bycat[t.category]=(bycat[t.category]||0)+Number(t.amount);});
   const topCatEntry=Object.entries(bycat).sort((a,b)=>b[1]-a[1])[0];
   const topCat=topCatEntry?getCat(topCatEntry[0]):null;
-
-  // 3-month comparison
   const prevMonths=[];
   for(let i=1;i<=3;i++){
-    const ms2=new Date(now.getFullYear(),now.getMonth()-i,1);
-    const me2=new Date(now.getFullYear(),now.getMonth()-i+1,0,23,59,59);
+    const ms2=new Date(now.getFullYear(),now.getMonth()-i,1,0,0,0);
+    const me2=new Date(now.getFullYear(),now.getMonth()-i+1,0,23,59,59,999);
     const mName=ms2.toLocaleDateString('en-IN',{month:'short'});
-    const mExp=STATE.data.transactions.filter(t=>{const d=new Date(t.date);return d>=ms2&&d<=me2&&t.type==='expense';}).reduce((s,t)=>s+Number(t.amount),0);
+    const mExp=STATE.data.transactions.filter(t=>{const d=parseDateStr(t.date);return d&&d>=ms2&&d<=me2&&t.type==='expense';}).reduce((s,t)=>s+Number(t.amount),0);
     prevMonths.push({name:mName,exp:mExp});
   }
-
-  const body=document.getElementById('mr-modal-body');
   safeText(document.getElementById('mr-modal-title'),now.toLocaleDateString('en-IN',{month:'long',year:'numeric'})+' Report');
-
   let html=`<div class="report-card-grid">
     <div class="report-card-stat"><div class="report-card-stat-label">Total Spent</div><div class="report-card-stat-value" style="color:var(--red)">${fmt(totalExp)}</div></div>
     <div class="report-card-stat"><div class="report-card-stat-label">Total Income</div><div class="report-card-stat-value" style="color:var(--green)">${fmt(totalInc)}</div></div>
     <div class="report-card-stat"><div class="report-card-stat-label">Net Savings</div><div class="report-card-stat-value" style="color:${totalInc-totalExp>=0?'var(--green)':'var(--red)'}">${totalInc-totalExp>=0?'+':'-'}${fmt(Math.abs(totalInc-totalExp))}</div></div>
     <div class="report-card-stat"><div class="report-card-stat-label">Transactions</div><div class="report-card-stat-value">${txCount}</div></div>
   </div>`;
-
   if(topCat)html+=`<div class="insight-card" style="margin-bottom:10px"><div class="insight-icon">${sanitize(topCat.icon)}</div><div class="insight-text">Biggest category: <strong>${sanitize(topCat.name)}</strong> at ${fmt(topCatEntry[1])}</div></div>`;
   if(biggest)html+=`<div class="insight-card" style="margin-bottom:14px"><div class="insight-icon">💸</div><div class="insight-text">Biggest single expense: <strong>${sanitize(biggest.title)}</strong> at ${fmt(biggest.amount)}</div></div>`;
-
-  html+=`<div class="section-title">vs Previous 3 Months</div>`;
+  html+=`<div class="section-title" style="margin-bottom:8px;">vs Previous 3 Months</div>`;
   prevMonths.reverse().forEach(m=>{
     const pct=m.exp>0&&totalExp>0?Math.round((totalExp-m.exp)/m.exp*100):null;
     const color=pct===null?'var(--text3)':pct>0?'var(--red)':'var(--green)';
     html+=`<div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid var(--border)"><span style="font-size:13px;color:var(--text2)">${sanitize(m.name)}</span><span style="font-family:var(--font-mono);font-size:13px">${fmt(m.exp)}</span>${pct!==null?`<span style="font-size:12px;color:${color};font-weight:600">${pct>0?'▲':'▼'}${Math.abs(pct)}%</span>`:''}</div>`;
   });
-  body.innerHTML=html;
+  document.getElementById('mr-modal-body').innerHTML=html;
 }
 
 // ── QUICK ENTRIES ─────────────────────────────────────────────────────────────
@@ -1322,11 +1339,20 @@ function renderQuickEntries(){
 function triggerQuickEntry(qe){
   STATE.pendingQuickEntry=qe;
   const{date,time}=getNowDT();
-  document.getElementById('qc-title').textContent=sanitize(qe.icon||'💳')+' '+sanitize(qe.name);
+  safeText(document.getElementById('qc-title'),(qe.icon||'💳')+' '+qe.name);
   document.getElementById('qc-amount').value=qe.amount||'';
   document.getElementById('qc-date').value=date;
   document.getElementById('qc-time').value=time;
-  document.getElementById('qc-notes').value='';
+  document.getElementById('qc-notes').value=qe.notes||'';
+  document.getElementById('qc-payment').value=qe.payment||'UPI';
+  // Populate category select and set saved value
+  const sel=document.getElementById('qc-category');sel.innerHTML='';
+  STATE.data.categories.forEach(cat=>{const opt=document.createElement('option');opt.value=cat.id;opt.textContent=cat.icon+' '+cat.name;sel.appendChild(opt);});
+  if(qe.category)sel.value=qe.category;
+  // Show saved tags (read-only display)
+  const tagsDisplay=document.getElementById('qc-tags-display');tagsDisplay.innerHTML='';
+  if((qe.tags||[]).length){(qe.tags||[]).forEach(tag=>{const chip=document.createElement('div');chip.className='tag-chip';safeText(chip,tag);tagsDisplay.appendChild(chip);});}
+  else{const p=document.createElement('span');p.style.cssText='font-size:13px;color:var(--text3);padding:2px 4px;';safeText(p,'No tags');tagsDisplay.appendChild(p);}
   openModal('quick-confirm-modal');
 }
 
@@ -1336,34 +1362,89 @@ function confirmQuickEntry(){
   const date=document.getElementById('qc-date').value;
   const time=document.getElementById('qc-time').value;
   const notes=document.getElementById('qc-notes').value.trim();
+  const category=document.getElementById('qc-category').value;
+  const payment=document.getElementById('qc-payment').value;
   if(isNaN(amount)||amount<=0){showToast('Enter a valid amount');return;}
   if(!date){showToast('Pick a date');return;}
   STATE.data.transactions.push({
     id:generateId(),type:qe.type||'expense',amount,title:qe.name,
-    date,time,category:qe.category||'other',paymentMethod:qe.payment||'UPI',
-    notes,tags:[],customFields:{},createdAt:new Date().toISOString()
+    date,time,category:category||qe.category||'other',
+    paymentMethod:payment||qe.payment||'UPI',
+    notes,tags:qe.tags||[],customFields:{},createdAt:new Date().toISOString()
   });
   STATE.pendingQuickEntry=null;
   saveData();closeModal('quick-confirm-modal');renderDashboard();
   showToast('✅ '+sanitize(qe.name)+' logged');
 }
 
+let qeActiveTags=[];
+let qeTagDropdownOpen=false;
+let qeType='expense';
+
+function setQEType(type){
+  qeType=type;
+  const eb=document.getElementById('qe-type-exp'),ib=document.getElementById('qe-type-inc');
+  if(eb)eb.className='type-btn '+(type==='expense'?'active-exp':'');
+  if(ib)ib.className='type-btn '+(type==='income'?'active-inc':'');
+}
+
 function openManageQuickModal(){
+  qeActiveTags=[];qeType='expense';
   renderManageQuickList();
-  // Populate category select
   const sel=document.getElementById('qe-category');sel.innerHTML='';
   STATE.data.categories.forEach(cat=>{const opt=document.createElement('option');opt.value=cat.id;opt.textContent=cat.icon+' '+cat.name;sel.appendChild(opt);});
+  setQEType('expense');
+  renderQETagChips();
   openModal('quick-manage-modal');
+}
+
+function toggleQETagDropdown(){
+  qeTagDropdownOpen=!qeTagDropdownOpen;
+  const dd=document.getElementById('qe-tag-dropdown');if(!dd)return;
+  dd.style.display=qeTagDropdownOpen?'block':'none';
+  if(qeTagDropdownOpen)renderQETagDropdownList();
+}
+
+function renderQETagDropdownList(){
+  const list=document.getElementById('qe-tag-dropdown-list');if(!list)return;list.innerHTML='';
+  const allTags=STATE.data.tags||[];
+  if(!allTags.length){list.innerHTML='<div style="padding:10px;font-size:13px;color:var(--text3)">No tags yet — add in Settings</div>';return;}
+  allTags.forEach(tag=>{
+    const isActive=qeActiveTags.includes(tag);
+    const item=document.createElement('div');
+    item.style.cssText=`display:flex;align-items:center;gap:10px;padding:9px 14px;cursor:pointer;border-bottom:1px solid var(--border);background:${isActive?'rgba(124,108,252,.1)':'transparent'};`;
+    item.innerHTML=`<div style="width:16px;height:16px;border-radius:4px;border:2px solid ${isActive?'var(--accent)':'var(--border)'};background:${isActive?'var(--accent)':'transparent'};flex-shrink:0"></div><span style="font-size:14px">${sanitize(tag)}</span>`;
+    item.onclick=e=>{e.stopPropagation();if(qeActiveTags.includes(tag))qeActiveTags=qeActiveTags.filter(t=>t!==tag);else qeActiveTags.push(tag);renderQETagDropdownList();renderQETagChips();};
+    list.appendChild(item);
+  });
+}
+
+function renderQETagChips(){
+  const wrap=document.getElementById('qe-tags-wrap');if(!wrap)return;wrap.innerHTML='';
+  if(!qeActiveTags.length){const p=document.createElement('span');p.style.cssText='font-size:13px;color:var(--text3);padding:2px 4px;';safeText(p,'Tap to select tags…');wrap.appendChild(p);return;}
+  qeActiveTags.forEach(tag=>{const chip=document.createElement('div');chip.className='tag-chip';chip.innerHTML=`${sanitize(tag)}<button onclick="event.stopPropagation();qeActiveTags=qeActiveTags.filter(t=>t!=='${sanitize(tag)}');renderQETagChips();" type="button" style="background:none;border:none;color:var(--accent2);cursor:pointer;font-size:14px;line-height:1;padding:0;margin-left:2px">×</button>`;wrap.appendChild(chip);});
 }
 
 function renderManageQuickList(){
   const el=document.getElementById('quick-manage-list');if(!el)return;el.innerHTML='';
   const entries=STATE.data.quickEntries||[];
-  if(!entries.length){const row=document.createElement('div');row.style.cssText='padding:14px 16px;font-size:13px;color:var(--text3);';safeText(row,'No quick entries yet');el.appendChild(row);return;}
+  if(!entries.length){
+    const row=document.createElement('div');row.style.cssText='padding:14px 16px;font-size:13px;color:var(--text3);';
+    safeText(row,'No quick entries yet — add one below');el.appendChild(row);return;
+  }
   entries.forEach((qe,i)=>{
     const row=document.createElement('div');
     row.style.cssText='display:flex;align-items:center;gap:10px;padding:10px 14px;border-bottom:1px solid var(--border);';
-    row.innerHTML=`<span style="font-size:20px">${sanitize(qe.icon||'💳')}</span><span style="flex:1;font-size:13px;font-weight:500">${sanitize(qe.name)}</span><span style="font-family:var(--font-mono);font-size:12px;color:var(--text2)">${fmt(qe.amount||0)}</span><button class="icon-btn danger" onclick="deleteQuickEntry(${i})">🗑</button>`;
+    const typeColor=qe.type==='income'?'var(--green)':'var(--red)';
+    row.innerHTML=`
+      <span style="font-size:20px">${sanitize(qe.icon||'💳')}</span>
+      <div style="flex:1;min-width:0">
+        <div style="font-size:13px;font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${sanitize(qe.name)}</div>
+        <div style="font-size:11px;color:var(--text3)">${sanitize(getCat(qe.category).name)} · <span style="color:${typeColor}">${sanitize(qe.type||'expense')}</span></div>
+      </div>
+      <span style="font-family:var(--font-mono);font-size:12px;color:var(--text2);flex-shrink:0">${fmt(qe.amount||0)}</span>
+      <button class="icon-btn" onclick="editQuickEntry(${i})" title="Edit" style="flex-shrink:0">✏️</button>
+      <button class="icon-btn danger" onclick="deleteQuickEntry(${i})" title="Delete" style="flex-shrink:0">🗑</button>`;
     el.appendChild(row);
   });
 }
@@ -1373,20 +1454,67 @@ function saveQuickEntry(){
   const amount=parseFloat(document.getElementById('qe-amount').value)||0;
   const icon=document.getElementById('qe-icon').value.trim()||'💳';
   const category=document.getElementById('qe-category').value;
-  const type=document.getElementById('qe-type').value;
   const payment=document.getElementById('qe-payment').value;
+  const notes=document.getElementById('qe-notes').value.trim();
   if(!name){showToast('Enter a name');return;}
   if(name.length>30){showToast('Name too long (max 30 chars)');return;}
   if(!STATE.data.quickEntries)STATE.data.quickEntries=[];
-  STATE.data.quickEntries.push({id:generateId(),name,amount,icon:icon.slice(0,2),category,type,payment});
-  document.getElementById('qe-name').value='';document.getElementById('qe-amount').value='';document.getElementById('qe-icon').value='';
-  saveData();renderManageQuickList();renderQuickEntries();showToast('Quick entry saved');
+  const entry={id:generateId(),name,amount,icon:icon.slice(0,2),category,type:qeType,payment,tags:[...qeActiveTags],notes};
+  const editIdx=STATE._editingQEIndex;
+  if(editIdx!==undefined&&editIdx!==null&&STATE.data.quickEntries[editIdx]){
+    // Preserve original id when editing
+    entry.id=STATE.data.quickEntries[editIdx].id;
+    STATE.data.quickEntries[editIdx]=entry;
+    STATE._editingQEIndex=null;
+    showToast('Quick entry updated');
+  } else {
+    STATE.data.quickEntries.push(entry);
+    showToast('Quick entry saved');
+  }
+  // Reset form
+  document.getElementById('qe-name').value='';
+  document.getElementById('qe-amount').value='';
+  document.getElementById('qe-icon').value='';
+  document.getElementById('qe-notes').value='';
+  qeActiveTags=[];renderQETagChips();
+  // Reset button label
+  const saveBtn=document.querySelector('#quick-manage-modal .btn-primary');
+  if(saveBtn)safeText(saveBtn,'Save Quick Entry');
+  const addForm=document.querySelector('#quick-manage-modal .modal-body>div:last-child');
+  if(addForm)addForm.style.borderColor='var(--border)';
+  saveData();renderManageQuickList();renderQuickEntries();
 }
 
 function deleteQuickEntry(i){
   if(!confirm('Remove this quick entry?'))return;
   STATE.data.quickEntries.splice(i,1);
   saveData();renderManageQuickList();renderQuickEntries();showToast('Removed');
+}
+
+function editQuickEntry(i){
+  const qe=STATE.data.quickEntries[i];if(!qe)return;
+  // Populate the add form with the existing values for editing
+  setQEType(qe.type||'expense');
+  document.getElementById('qe-name').value=qe.name||'';
+  document.getElementById('qe-amount').value=qe.amount||'';
+  document.getElementById('qe-icon').value=qe.icon||'';
+  document.getElementById('qe-notes').value=qe.notes||'';
+  document.getElementById('qe-payment').value=qe.payment||'UPI';
+  // Populate category and set value
+  const sel=document.getElementById('qe-category');sel.innerHTML='';
+  STATE.data.categories.forEach(cat=>{const opt=document.createElement('option');opt.value=cat.id;opt.textContent=cat.icon+' '+cat.name;sel.appendChild(opt);});
+  if(qe.category)sel.value=qe.category;
+  // Set tags
+  qeActiveTags=[...(qe.tags||[])];renderQETagChips();
+  // Mark as editing this index so Save replaces instead of appending
+  STATE._editingQEIndex=i;
+  // Scroll the add form into view
+  const addForm=document.querySelector('#quick-manage-modal .modal-body>div:last-child');
+  if(addForm){addForm.scrollIntoView({behavior:'smooth'});addForm.style.borderColor='var(--accent)';}
+  // Change button label to indicate editing
+  const saveBtn=document.querySelector('#quick-manage-modal .btn-primary');
+  if(saveBtn)safeText(saveBtn,'Update Quick Entry');
+  showToast('Edit the fields below and tap Update');
 }
 
 // ── RECURRING ENTRIES ─────────────────────────────────────────────────────────
@@ -1569,9 +1697,9 @@ function renderBarChart(hasData){
     data.push(STATE.data.transactions
       .filter(t=>{
         if(!t.date||t.type!=='expense')return false;
-        const ds=String(t.date).slice(0,10).split('-');
-        if(ds.length!==3)return false;
-        return Number(ds[0])===now.getFullYear()&&Number(ds[1])-1===now.getMonth()&&Number(ds[2])===d;
+        const td=parseDateStr(t.date);
+        if(!td)return false;
+        return td.getFullYear()===now.getFullYear()&&td.getMonth()===now.getMonth()&&td.getDate()===d;
       })
       .reduce((s,t)=>s+Number(t.amount),0));
   }
@@ -1584,7 +1712,7 @@ function renderDowChart(hasData){
   if(!hasData){if(wrap)wrap.style.display='none';if(nodata)nodata.style.display='flex';return;}
   const days=['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
   const totals=[0,0,0,0,0,0,0];const counts=[0,0,0,0,0,0,0];
-  STATE.data.transactions.filter(t=>t.type==='expense').forEach(t=>{const d=new Date(t.date);const dow=d.getDay();totals[dow]+=Number(t.amount);counts[dow]++;});
+  STATE.data.transactions.filter(t=>t.type==='expense').forEach(t=>{const d=parseDateStr(t.date);if(!d)return;const dow=d.getDay();totals[dow]+=Number(t.amount);counts[dow]++;});
   const avgs=totals.map((t,i)=>counts[i]?Math.round(t/counts[i]):0);
   const maxAvg=Math.max(...avgs,1);
   if(avgs.every(v=>v===0)){if(wrap)wrap.style.display='none';if(nodata)nodata.style.display='flex';return;}
@@ -1614,7 +1742,12 @@ function renderInsights(expenses,incomes,hasTxns){
 }
 
 function renderRecentTxns(){
-  const recent=[...STATE.data.transactions].sort((a,b)=>new Date(b.date)-new Date(a.date)).slice(0,10);
+  const recent=[...STATE.data.transactions].sort((a,b)=>{
+    const da=parseDateStr(a.date)||new Date(0);
+    const db=parseDateStr(b.date)||new Date(0);
+    if(db-da!==0)return db-da;
+    return (b.time||'00:00').localeCompare(a.time||'00:00');
+  }).slice(0,10);
   const el=document.getElementById('recent-txns');el.innerHTML='';
   if(!recent.length){el.innerHTML=`<div style="display:flex;flex-direction:column;align-items:center;padding:32px 16px;gap:10px;text-align:center"><div style="font-size:48px;opacity:.3">📭</div><div style="font-size:13px;color:var(--text3)">No entries yet — tap + to add your first</div></div>`;return;}
   recent.forEach(t=>el.appendChild(makeTxnRow(t)));
@@ -1635,7 +1768,7 @@ function setHistoryFilter(el,period){document.querySelectorAll('#history-filter-
 function renderHistory(){
   const q=(document.getElementById('history-search-input')?.value||'').toLowerCase();
   const[s,e]=getDateRange(STATE.historyPeriod);
-  let txns=STATE.data.transactions.filter(t=>{const d=new Date(t.date);return d>=s&&d<=e;});
+  let txns=STATE.data.transactions.filter(t=>{const d=parseDateStr(t.date);return d&&d>=s&&d<=e;});
   if(q)txns=txns.filter(t=>(t.title||'').toLowerCase().includes(q)||(t.notes||'').toLowerCase().includes(q)||(t.tags||[]).some(tag=>tag.toLowerCase().includes(q)));
   txns.sort((a,b) => {
     const da = new Date(String(a.date).slice(0,10) + 'T' + (a.time || '00:00'));
@@ -1646,7 +1779,7 @@ function renderHistory(){
   if(!txns.length){el.innerHTML=`<div class="empty-state"><div class="empty-icon">🔍</div><div class="empty-title">No transactions found</div></div>`;return;}
   let lastDate='';
   txns.forEach(t=>{
-    const ds=new Date(t.date).toLocaleDateString('en-IN',{weekday:'short',day:'numeric',month:'short'});
+    const ds=(parseDateStr(t.date)||new Date()).toLocaleDateString('en-IN',{weekday:'short',day:'numeric',month:'short'});
     if(ds!==lastDate){const dh=document.createElement('div');dh.className='date-group-header';safeText(dh,ds);el.appendChild(dh);lastDate=ds;}
     el.appendChild(makeTxnRow(t));
   });
