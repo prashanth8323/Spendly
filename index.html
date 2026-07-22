@@ -1030,7 +1030,18 @@ window.signIn=async function(){
   google.accounts.oauth2.initTokenClient({client_id:GOOGLE_CLIENT_ID,scope:DRIVE_SCOPE,callback:async resp=>{
     if(resp.error){showToast('Sign-in failed: '+sanitize(resp.error));return;}
     accessToken=resp.access_token;sessionStorage.setItem('spendly_token',accessToken);
-    showLoading();await fetchUserProfile();await loadUserData();showApp();
+    showLoading();
+
+try{
+    await fetchUserProfile();
+    await loadUserData();
+    showApp();
+}
+catch(err){
+    console.error(err);
+    hideLoading();
+    showToast("Unable to sign in. Please try again.");
+}
   }}).requestAccessToken();
 };
 async function fetchUserProfile(){
@@ -1076,21 +1087,84 @@ async function writeDriveFile(data){
 }
 function fmtTime(d){return d.toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'})+' '+d.toLocaleDateString();}
 async function loadUserData(){
-  const file=await findDriveFile();
-  if(file){const d=await readDriveFile(file.id);if(d&&d.transactions)STATE.data={...STATE.data,...d};}
-  if(!STATE.data.categories||!STATE.data.categories.length)STATE.data.categories=JSON.parse(JSON.stringify(DEFAULT_CATS));
-  if(!STATE.data.customFields)STATE.data.customFields=[];
-  if(!STATE.data.transactions)STATE.data.transactions=[];
-  if(!STATE.data.members)STATE.data.members=[];
-  if(!STATE.data.tags||!STATE.data.tags.length)STATE.data.tags=[...DEFAULT_TAGS];
-  if(!STATE.data.quickEntries)STATE.data.quickEntries=[];
-  if(!STATE.data.recurringEntries)STATE.data.recurringEntries=[];
-  if(!STATE.data.notifications)STATE.data.notifications=[];
-  STATE.viewingUserId=STATE.user.id;
-  const ls=localStorage.getItem('spendly_last_sync');
-  if(ls){const el=document.getElementById('last-sync');if(el)safeText(el,fmtTime(new Date(ls)));}
+  try{
+    const file = await findDriveFile();
+
+    if(file){
+      const d = await readDriveFile(file.id);
+
+      if(d && d.transactions){
+        STATE.data = {...STATE.data, ...d};
+      }
+    }
+  }catch(err){
+    console.error('Google Drive sync failed', err);
+
+    const backup = localStorage.getItem('spendly_local_backup');
+
+    if(backup){
+      try{
+        STATE.data = JSON.parse(backup);
+        showToast('Loaded local backup while Drive sync failed.');
+      }catch(e){
+        console.error(e);
+      }
+    }else{
+      showToast('Unable to load data from Google Drive.');
+    }
+  }
+
+  if(!STATE.data.categories || !STATE.data.categories.length)
+    STATE.data.categories = JSON.parse(JSON.stringify(DEFAULT_CATS));
+
+  if(!STATE.data.customFields)
+    STATE.data.customFields = [];
+
+  if(!STATE.data.transactions)
+    STATE.data.transactions = [];
+
+  if(!STATE.data.members)
+    STATE.data.members = [];
+
+  if(!STATE.data.tags || !STATE.data.tags.length)
+    STATE.data.tags = [...DEFAULT_TAGS];
+
+  if(!STATE.data.quickEntries)
+    STATE.data.quickEntries = [];
+
+  if(!STATE.data.recurringEntries)
+    STATE.data.recurringEntries = [];
+
+  if(!STATE.data.notifications)
+    STATE.data.notifications = [];
+
+  STATE.viewingUserId = STATE.user.id;
+
+  const ls = localStorage.getItem('spendly_last_sync');
+
+  if(ls){
+    const el = document.getElementById('last-sync');
+
+    if(el)
+      safeText(el, fmtTime(new Date(ls)));
+  }
 }
-async function saveData(){try{await writeDriveFile(STATE.data);}catch(e){showToast('⚠️ Sync failed — check connection');localStorage.setItem('spendly_local_backup',JSON.stringify(STATE.data));}}
+async function saveData(){
+
+  localStorage.setItem(
+      'spendly_local_backup',
+      JSON.stringify(STATE.data)
+  );
+
+  try{
+      await writeDriveFile(STATE.data);
+  }
+  catch(e){
+      console.error(e);
+      showToast('⚠️ Sync failed — changes are safely stored locally.');
+  }
+
+}
 async function syncToDrive(){showToast('Syncing…');await saveData();showToast('✅ Synced to Google Drive');}
 function exportJSON(){const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([JSON.stringify(STATE.data,null,2)],{type:'application/json'}));a.download=`spendly_backup_${new Date().toISOString().slice(0,10)}.json`;a.click();}
 
