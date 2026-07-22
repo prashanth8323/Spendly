@@ -598,6 +598,10 @@
       <div class="card" style="padding:0;overflow:hidden">
         <div class="settings-row">
           <div><div class="settings-label">Sync to Google Drive</div><div class="settings-desc">Last sync: <span id="last-sync">Never</span></div></div>
+          <div class="setting-row">
+    <div>Google Drive Backup Size</div>
+    <div id="drive-file-size">Loading...</div>
+</div>
           <button class="btn btn-sm btn-ghost" onclick="syncToDrive()">Sync Now</button>
         </div>
         <div class="settings-row">
@@ -993,7 +997,7 @@ function toggleTheme(){
 let STATE={
   user:null,viewingUserId:null,
   data:{transactions:[],categories:[],customFields:[],tags:[],members:[],settings:{},quickEntries:[],recurringEntries:[],notifications:[]},
-  charts:{},entryType:'expense',historyPeriod:'month',reportPeriod:'month',reportTab:'category',
+  charts:{},driveFileSize:0,entryType:'expense',historyPeriod:'month',reportPeriod:'month',reportTab:'category',
   activeTags:[],editingTxnId:null,tagDropdownOpen:false,autofillMatch:null,
   pendingQuickEntry:null,pendingRecurringConfirm:null,
 };
@@ -1082,13 +1086,25 @@ async function writeDriveFile(data){
   form.append('file',new Blob([JSON.stringify(data)],{type:'application/json'}));
   const r=await driveRequest(ex?`https://www.googleapis.com/upload/drive/v3/files/${ex.id}?uploadType=multipart`:'https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart',{method:ex?'PATCH':'POST',body:form});
   if(!r.ok)throw new Error('Drive write failed');
-  localStorage.setItem('spendly_last_sync',new Date().toISOString());
-  const el=document.getElementById('last-sync');if(el)safeText(el,fmtTime(new Date()));
+
+STATE.driveFileSize = new Blob(
+    [JSON.stringify(data)],
+    { type: 'application/json' }
+).size;
+
+localStorage.setItem('spendly_last_sync',new Date().toISOString());
+
+const el=document.getElementById('last-sync');
+if(el)safeText(el,fmtTime(new Date()));
+
 }
 function fmtTime(d){return d.toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'})+' '+d.toLocaleDateString();}
 async function loadUserData(){
   try{
     const file = await findDriveFile();
+    if(file && file.size){
+    STATE.driveFileSize = Number(file.size);
+}
 
     if(file){
       const d = await readDriveFile(file.id);
