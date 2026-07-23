@@ -332,6 +332,13 @@
   .dow-bar-bg { flex:1; height:22px; background:var(--bg3); border-radius:6px; overflow:hidden; position:relative; }
   .dow-bar-fill { height:100%; border-radius:6px; display:flex; align-items:center; padding-left:8px; transition:width .6s cubic-bezier(.4,0,.2,1); }
   .dow-bar-val { font-size:11px; font-family:var(--font-mono); color:var(--text); white-space:nowrap; }
+  /* ── DRAG SORT ── */
+  .sortable-row { display:flex; align-items:center; gap:8px; padding:10px 14px; border-bottom:1px solid var(--border); transition:background .15s; }
+  .sortable-row.dragging { opacity:.4; background:var(--bg3); }
+  .sortable-row.drag-over { border-top:2px solid var(--accent); }
+  .drag-handle { cursor:grab; color:var(--text3); flex-shrink:0; padding:4px; touch-action:none; user-select:none; }
+  .drag-handle:active { cursor:grabbing; }
+  .drag-handle svg { width:18px; height:18px; display:block; }
   @media(min-width:900px){
     .nav-item { justify-content:flex-start; width:100%; border-radius:0; }
     .nav-item.active { color:var(--accent2); background:rgba(124,108,252,.1); }
@@ -384,12 +391,6 @@
           <div id="dash-avatar-init" style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;font-family:var(--font-display);font-weight:700;font-size:14px;color:var(--accent2)"></div>
         </div>
       </div>
-    </div>
-
-    <!-- Admin user switcher -->
-    <div id="admin-switcher-wrap" style="display:none">
-      <div class="section-title" style="padding:0 16px 6px">Viewing</div>
-      <div class="user-switcher" id="user-switcher"></div>
     </div>
 
     <!-- Summary strip -->
@@ -566,12 +567,6 @@
           <button class="btn btn-sm btn-danger" onclick="signOut()">Sign Out</button>
         </div>
       </div>
-    </div>
-
-    <div class="section" id="admin-section" style="display:none">
-      <div class="section-title">Family / Friends Access</div>
-      <div class="card" style="padding:0;overflow:hidden" id="admin-users-list"></div>
-      <button class="btn btn-ghost btn-full" style="margin-top:10px" onclick="openInviteModal()">+ Invite Person</button>
     </div>
 
     <div class="section">
@@ -784,33 +779,56 @@
     </div>
   </div>
 </div>
-
-<!-- ── INVITE MODAL ── -->
-<div class="modal-overlay" id="invite-modal">
+<!-- EDIT CATEGORY MODAL -->
+<div class="modal-overlay" id="edit-cat-modal">
   <div class="modal">
     <div class="modal-handle"></div>
     <div class="modal-header">
-      <span class="modal-title">Invite Person</span>
-      <button class="icon-btn" onclick="closeModal('invite-modal')">✕</button>
+      <span class="modal-title">Edit Category</span>
+      <button class="icon-btn" onclick="closeModal('edit-cat-modal')">✕</button>
     </div>
     <div class="modal-body">
-      <div style="background:var(--bg3);border:1px solid var(--border);border-radius:var(--radius-sm);padding:14px;font-size:13px;color:var(--text2);line-height:1.6">
-        <strong style="color:var(--text)">How family/friend access works:</strong><br>
-        Each person logs in with their own Google account. Their data lives in their own Google Drive. You (admin) get read access to their Spendly file to view their dashboard — they see only their own data.
+      <input type="hidden" id="edit-cat-id">
+      <div class="field"><label>Name</label><input type="text" id="edit-cat-name" placeholder="e.g. Groceries"></div>
+      <div class="field"><label>Emoji Icon</label><input type="text" id="edit-cat-icon" placeholder="🛒" maxlength="2"></div>
+      <div class="field">
+        <label>Colour</label>
+        <div style="display:flex;gap:8px;flex-wrap:wrap" id="edit-cat-color-picker">
+          <div onclick="selectEditColor(this,'#7c6cfc')" style="width:28px;height:28px;border-radius:50%;background:#7c6cfc;cursor:pointer;border:2px solid transparent"></div>
+          <div onclick="selectEditColor(this,'#3dd68c')" style="width:28px;height:28px;border-radius:50%;background:#3dd68c;cursor:pointer;border:2px solid transparent"></div>
+          <div onclick="selectEditColor(this,'#ff5f7e')" style="width:28px;height:28px;border-radius:50%;background:#ff5f7e;cursor:pointer;border:2px solid transparent"></div>
+          <div onclick="selectEditColor(this,'#ffb547')" style="width:28px;height:28px;border-radius:50%;background:#ffb547;cursor:pointer;border:2px solid transparent"></div>
+          <div onclick="selectEditColor(this,'#38d9f5')" style="width:28px;height:28px;border-radius:50%;background:#38d9f5;cursor:pointer;border:2px solid transparent"></div>
+          <div onclick="selectEditColor(this,'#f06292')" style="width:28px;height:28px;border-radius:50%;background:#f06292;cursor:pointer;border:2px solid transparent"></div>
+          <div onclick="selectEditColor(this,'#ff9800')" style="width:28px;height:28px;border-radius:50%;background:#ff9800;cursor:pointer;border:2px solid transparent"></div>
+          <div onclick="selectEditColor(this,'#00bcd4')" style="width:28px;height:28px;border-radius:50%;background:#00bcd4;cursor:pointer;border:2px solid transparent"></div>
+        </div>
       </div>
-      <div class="field"><label>Their Google Email</label><input type="email" id="invite-email" placeholder="family@gmail.com"></div>
-      <div class="field"><label>Nickname</label><input type="text" id="invite-name" placeholder="e.g. Priya, Dad…"></div>
-      <p style="font-size:12px;color:var(--text3)">You'll generate an access link. They open it, log in with Google, and their data becomes visible in your admin view.</p>
-      <button class="btn btn-primary btn-full" onclick="generateInvite()">Generate Invite Link</button>
-      <div id="invite-result" style="display:none;background:var(--bg3);border:1px solid var(--border);border-radius:var(--radius-sm);padding:14px">
-        <div style="font-size:12px;color:var(--text2);margin-bottom:6px">Share this link with them:</div>
-        <div id="invite-link-text" style="font-family:var(--font-mono);font-size:11px;color:var(--accent2);word-break:break-all"></div>
-        <button class="btn btn-ghost btn-full btn-sm" style="margin-top:8px" onclick="copyInviteLink()">Copy Link</button>
-      </div>
+      <button class="btn btn-primary btn-full" onclick="saveEditCategory()">Save Changes</button>
     </div>
   </div>
 </div>
 
+<!-- EDIT TAG MODAL -->
+<div class="modal-overlay" id="edit-tag-modal">
+  <div class="modal">
+    <div class="modal-handle"></div>
+    <div class="modal-header">
+      <span class="modal-title">Edit Tag</span>
+      <button class="icon-btn" onclick="closeModal('edit-tag-modal')">✕</button>
+    </div>
+    <div class="modal-body">
+      <input type="hidden" id="edit-tag-index">
+      <div class="field">
+        <label>Tag Name</label>
+        <input type="text" id="edit-tag-name" placeholder="Tag name" maxlength="30">
+      </div>
+      <p style="font-size:12px;color:var(--text2)">Renaming this tag will update it in all existing expense and income entries automatically.</p>
+      <button class="btn btn-primary btn-full" onclick="saveEditTag()">Save Changes</button>
+    </div>
+  </div>
+</div>
+  
 <!-- TOAST -->
 <!-- NOTIFICATION PANEL -->
 <div class="notif-overlay" id="notif-overlay" onclick="closeNotifPanel()"></div>
@@ -1076,8 +1094,23 @@ async function writeDriveFile(data){
 }
 function fmtTime(d){return d.toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'})+' '+d.toLocaleDateString();}
 async function loadUserData(){
-  const file=await findDriveFile();
-  if(file){const d=await readDriveFile(file.id);if(d&&d.transactions)STATE.data={...STATE.data,...d};}
+  // Try up to 3 times with increasing delays — fixes intermittent Drive sync failure
+  let driveData=null;
+  for(let attempt=1;attempt<=3;attempt++){
+    try{
+      const file=await findDriveFile();
+      if(file){
+        const d=await readDriveFile(file.id);
+        if(d&&Array.isArray(d.transactions)){driveData=d;break;}
+      } else {
+        break; // No file yet — new user, stop retrying
+      }
+    }catch(e){
+      if(attempt<3)await new Promise(r=>setTimeout(r,attempt*800));
+    }
+  }
+  if(driveData)STATE.data={...STATE.data,...driveData};
+  // Fallback defaults for any missing fields
   if(!STATE.data.categories||!STATE.data.categories.length)STATE.data.categories=JSON.parse(JSON.stringify(DEFAULT_CATS));
   if(!STATE.data.customFields)STATE.data.customFields=[];
   if(!STATE.data.transactions)STATE.data.transactions=[];
@@ -1100,7 +1133,7 @@ function showApp(){
   document.getElementById('loading-screen').style.display='none';
   document.getElementById('app').style.display='flex';
   updateUserUI();renderDashboard();
-  if(STATE.user.isAdmin){document.getElementById('admin-switcher-wrap').style.display='block';document.getElementById('admin-section').style.display='block';renderAdminSwitcher();}
+  // Admin switcher removed — invite feature removed
   checkRecurringDue();
   generateScheduledNotifications();
   updateNotifBadge();
@@ -1952,15 +1985,28 @@ document.addEventListener('click',e=>{const wrap=document.getElementById('tags-w
 // ── SETTINGS ──────────────────────────────────────────────────────────────────
 function renderSettings(){
   renderCategorySettings();renderCustomFieldsSettings();renderTagsSettings();renderRecurringSettings();
-  if(STATE.user?.isAdmin)renderAdminUsers();
   const isDark=!document.documentElement.classList.contains('light');
   const toggle=document.getElementById('theme-toggle');if(toggle)toggle.classList.toggle('on',isDark);
 }
 function renderTagsSettings(){
   const el=document.getElementById('tags-settings-list');if(!el)return;el.innerHTML='';
   const tags=STATE.data.tags||[];
-  if(!tags.length){const row=document.createElement('div');row.className='settings-row';safeText(row,'No tags yet — add one below');row.style.color='var(--text3)';el.appendChild(row);return;}
-  tags.forEach((tag,i)=>{const row=document.createElement('div');row.className='settings-row';row.innerHTML=`<span class="settings-label">${sanitize(tag)}</span><button class="icon-btn danger" onclick="deleteTag(${i})">🗑</button>`;el.appendChild(row);});
+  if(!tags.length){
+    const row=document.createElement('div');row.className='settings-row';
+    safeText(row,'No tags yet — add one below');row.style.color='var(--text3)';el.appendChild(row);return;
+  }
+  tags.forEach((tag,i)=>{
+    const row=document.createElement('div');row.className='sortable-row';row.dataset.index=i;
+    row.innerHTML=`
+      <div class="drag-handle" title="Drag to reorder">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="9" cy="5" r="1.2" fill="currentColor"/><circle cx="15" cy="5" r="1.2" fill="currentColor"/><circle cx="9" cy="12" r="1.2" fill="currentColor"/><circle cx="15" cy="12" r="1.2" fill="currentColor"/><circle cx="9" cy="19" r="1.2" fill="currentColor"/><circle cx="15" cy="19" r="1.2" fill="currentColor"/></svg>
+      </div>
+      <span style="flex:1;font-size:14px;font-weight:500">${sanitize(tag)}</span>
+      <button class="icon-btn" onclick="openEditTag(${i})" title="Edit">✏️</button>
+      <button class="icon-btn danger" onclick="deleteTag(${i})" title="Delete">🗑</button>`;
+    el.appendChild(row);
+  });
+  initDragSort(el,'tags');
 }
 function addTagFromSettings(){
   const input=document.getElementById('new-tag-input');const val=input.value.trim().slice(0,30);
@@ -1969,10 +2015,57 @@ function addTagFromSettings(){
   if(!STATE.data.tags)STATE.data.tags=[];if(STATE.data.tags.length>=50){showToast('Max 50 tags');return;}
   STATE.data.tags.push(val);input.value='';saveData();renderTagsSettings();showToast('Tag added');
 }
-function deleteTag(i){if(!confirm('Delete this tag?'))return;STATE.data.tags.splice(i,1);saveData();renderTagsSettings();showToast('Tag deleted');}
+function deleteTag(i){
+  if(!confirm('Delete this tag? It will be removed from all existing entries.'))return;
+  const tagName=STATE.data.tags[i];
+  // Remove from all transactions
+  STATE.data.transactions.forEach(t=>{if(t.tags)t.tags=t.tags.filter(tag=>tag!==tagName);});
+  STATE.data.tags.splice(i,1);
+  saveData();renderTagsSettings();showToast('Tag deleted');
+}
+function openEditTag(i){
+  document.getElementById('edit-tag-index').value=i;
+  document.getElementById('edit-tag-name').value=STATE.data.tags[i]||'';
+  openModal('edit-tag-modal');
+}
+function saveEditTag(){
+  const i=parseInt(document.getElementById('edit-tag-index').value);
+  const newName=document.getElementById('edit-tag-name').value.trim().slice(0,30);
+  if(!newName){showToast('Enter a tag name');return;}
+  if(isNaN(i)||!STATE.data.tags[i]){showToast('Invalid tag');return;}
+  const oldName=STATE.data.tags[i];
+  if(oldName===newName){closeModal('edit-tag-modal');return;}
+  if(STATE.data.tags.some((t,idx)=>idx!==i&&t.toLowerCase()===newName.toLowerCase())){showToast('Tag already exists');return;}
+  // Update in all transactions
+  STATE.data.transactions.forEach(t=>{
+    if(t.tags)t.tags=t.tags.map(tag=>tag===oldName?newName:tag);
+  });
+  // Update in quick entries
+  (STATE.data.quickEntries||[]).forEach(qe=>{
+    if(qe.tags)qe.tags=qe.tags.map(tag=>tag===oldName?newName:tag);
+  });
+  STATE.data.tags[i]=newName;
+  saveData();closeModal('edit-tag-modal');renderTagsSettings();showToast('Tag updated in all entries');
+}
 function renderCategorySettings(){
   const el=document.getElementById('category-settings-list');el.innerHTML='';
-  STATE.data.categories.forEach(cat=>{const row=document.createElement('div');row.className='settings-row';row.innerHTML=`<div style="display:flex;align-items:center;gap:8px"><div style="width:24px;height:24px;border-radius:6px;background:${cat.color}22;display:flex;align-items:center;justify-content:center;font-size:14px">${sanitize(cat.icon)}</div><span class="settings-label">${sanitize(cat.name)}</span></div><button class="icon-btn danger" onclick="deleteCategory('${sanitize(cat.id)}')">🗑</button>`;el.appendChild(row);});
+  if(!STATE.data.categories.length){
+    const row=document.createElement('div');row.className='settings-row';
+    safeText(row,'No categories yet');row.style.color='var(--text3)';el.appendChild(row);return;
+  }
+  STATE.data.categories.forEach((cat,i)=>{
+    const row=document.createElement('div');row.className='sortable-row';row.dataset.index=i;
+    row.innerHTML=`
+      <div class="drag-handle" title="Drag to reorder">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="9" cy="5" r="1.2" fill="currentColor"/><circle cx="15" cy="5" r="1.2" fill="currentColor"/><circle cx="9" cy="12" r="1.2" fill="currentColor"/><circle cx="15" cy="12" r="1.2" fill="currentColor"/><circle cx="9" cy="19" r="1.2" fill="currentColor"/><circle cx="15" cy="19" r="1.2" fill="currentColor"/></svg>
+      </div>
+      <div style="width:28px;height:28px;border-radius:8px;background:${cat.color}22;display:flex;align-items:center;justify-content:center;font-size:16px;flex-shrink:0">${sanitize(cat.icon)}</div>
+      <span style="flex:1;font-size:14px;font-weight:500">${sanitize(cat.name)}</span>
+      <button class="icon-btn" onclick="openEditCategory('${sanitize(cat.id)}')" title="Edit">✏️</button>
+      <button class="icon-btn danger" onclick="deleteCategory('${sanitize(cat.id)}')" title="Delete">🗑</button>`;
+    el.appendChild(row);
+  });
+  initDragSort(el,'categories');
 }
 function renderCustomFieldsSettings(){
   const el=document.getElementById('custom-fields-settings');el.innerHTML='';
@@ -1996,32 +2089,141 @@ function switchViewTo(uid,chipEl){document.querySelectorAll('.user-chip').forEac
 
 // ── CATEGORY MANAGEMENT ───────────────────────────────────────────────────────
 let selectedCatColor='#7c6cfc';
+let selectedEditCatColor='#7c6cfc';
+
 function openAddCategoryModal(){selectedCatColor='#7c6cfc';openModal('cat-modal');}
 function selectColor(el,color){selectedCatColor=color;document.querySelectorAll('#cat-color-picker div').forEach(d=>d.style.borderColor='transparent');el.style.borderColor='#fff';}
-function saveCategory(){const name=document.getElementById('cat-name').value.trim();const icon=document.getElementById('cat-icon').value.trim()||'📦';if(!name){showToast('Enter a category name');return;}if(name.length>40){showToast('Name too long');return;}STATE.data.categories.push({id:name.toLowerCase().replace(/[^a-z0-9]/g,'_')+'_'+Date.now(),name,icon:icon.slice(0,2),color:selectedCatColor});saveData();closeModal('cat-modal');renderCategorySettings();showToast('Category added');}
-function deleteCategory(id){if(!confirm('Delete this category?'))return;STATE.data.categories=STATE.data.categories.filter(c=>c.id!==id);saveData();renderCategorySettings();showToast('Category deleted');}
+function saveCategory(){
+  const name=document.getElementById('cat-name').value.trim();
+  const icon=document.getElementById('cat-icon').value.trim()||'📦';
+  if(!name){showToast('Enter a category name');return;}if(name.length>40){showToast('Name too long');return;}
+  STATE.data.categories.push({id:name.toLowerCase().replace(/[^a-z0-9]/g,'_')+'_'+Date.now(),name,icon:icon.slice(0,2),color:selectedCatColor});
+  saveData();closeModal('cat-modal');renderCategorySettings();showToast('Category added');
+}
+function deleteCategory(id){
+  if(!confirm('Delete this category? Entries using it will show as Other.'))return;
+  STATE.data.categories=STATE.data.categories.filter(c=>c.id!==id);
+  saveData();renderCategorySettings();showToast('Category deleted');
+}
+function openEditCategory(id){
+  const cat=STATE.data.categories.find(c=>c.id===id);if(!cat)return;
+  document.getElementById('edit-cat-id').value=id;
+  document.getElementById('edit-cat-name').value=cat.name;
+  document.getElementById('edit-cat-icon').value=cat.icon;
+  selectedEditCatColor=cat.color;
+  // Highlight current colour in picker
+  document.querySelectorAll('#edit-cat-color-picker div').forEach(d=>{
+    d.style.borderColor=d.getAttribute('onclick')?.includes(cat.color)?'#fff':'transparent';
+  });
+  openModal('edit-cat-modal');
+}
+function selectEditColor(el,color){
+  selectedEditCatColor=color;
+  document.querySelectorAll('#edit-cat-color-picker div').forEach(d=>d.style.borderColor='transparent');
+  el.style.borderColor='#fff';
+}
+function saveEditCategory(){
+  const id=document.getElementById('edit-cat-id').value;
+  const name=document.getElementById('edit-cat-name').value.trim();
+  const icon=document.getElementById('edit-cat-icon').value.trim()||'📦';
+  if(!name){showToast('Enter a category name');return;}if(name.length>40){showToast('Name too long');return;}
+  const idx=STATE.data.categories.findIndex(c=>c.id===id);if(idx===-1){showToast('Category not found');return;}
+  STATE.data.categories[idx]={...STATE.data.categories[idx],name,icon:icon.slice(0,2),color:selectedEditCatColor};
+  saveData();closeModal('edit-cat-modal');renderCategorySettings();renderDashboard();showToast('Category updated');
+}
 
 // ── CUSTOM FIELDS ─────────────────────────────────────────────────────────────
 function openCustomFieldModal(){openModal('cf-modal');}
 function saveCustomField(){const label=document.getElementById('cf-label').value.trim();const type=document.getElementById('cf-type').value;const applies=document.getElementById('cf-applies').value;if(!label){showToast('Enter a field label');return;}if(label.length>50){showToast('Label too long');return;}const cf={id:generateId(),label,type,applies};if(type==='select'){const opts=document.getElementById('cf-options').value.split(',').map(o=>o.trim()).filter(Boolean);if(!opts.length){showToast('Add at least one option');return;}cf.options=opts.slice(0,20);}STATE.data.customFields.push(cf);saveData();closeModal('cf-modal');renderCustomFieldsSettings();showToast('Custom field added');}
 function deleteCustomField(id){if(!confirm('Delete this custom field?'))return;STATE.data.customFields=STATE.data.customFields.filter(f=>f.id!==id);saveData();renderCustomFieldsSettings();showToast('Field deleted');}
 
-// ── INVITE / MEMBERS ──────────────────────────────────────────────────────────
-function openInviteModal(){openModal('invite-modal');document.getElementById('invite-result').style.display='none';}
-function generateInvite(){
-  const email=document.getElementById('invite-email').value.trim();const name=document.getElementById('invite-name').value.trim();
-  if(!email||!email.includes('@')){showToast('Enter a valid email');return;}if(!name){showToast('Enter a nickname');return;}
-  if(name.length>30){showToast('Nickname too long');return;}if((STATE.data.members||[]).length>=20){showToast('Max 20 members');return;}
-  const token=btoa(JSON.stringify({adminId:STATE.user.id,adminEmail:STATE.user.email,name:name.slice(0,30),ts:Date.now()}));
-  const link=window.location.href.split('?')[0]+'?invite='+encodeURIComponent(token);
-  document.getElementById('invite-link-text').textContent=link;document.getElementById('invite-result').style.display='block';
-  if(!STATE.data.members)STATE.data.members=[];
-  if(!STATE.data.members.find(m=>m.email===email)){STATE.data.members.push({id:generateId(),name:name.slice(0,30),email});saveData();renderAdminUsers();renderAdminSwitcher();}
-}
-function copyInviteLink(){navigator.clipboard.writeText(document.getElementById('invite-link-text').textContent).then(()=>showToast('Link copied!')).catch(()=>showToast('Copy failed'));}
-function removeMember(id){if(!confirm('Remove this member?'))return;STATE.data.members=(STATE.data.members||[]).filter(m=>m.id!==id);saveData();renderAdminUsers();renderAdminSwitcher();showToast('Member removed');}
-function checkInviteToken(){const token=new URLSearchParams(window.location.search).get('invite');if(!token)return;try{const d=JSON.parse(atob(decodeURIComponent(token)));if(!d.adminId)return;window.history.replaceState({},'',window.location.pathname);showToast('Invite accepted! Sign in to continue.');STATE._pendingInvite=d;}catch(e){showToast('Invalid invite link');}}
+// ── DRAG SORT ENGINE ──────────────────────────────────────────────────────────
+// Works on both touch (mobile) and mouse (desktop)
+function initDragSort(container, dataKey){
+  let dragEl=null,dragIdx=null;
 
+  function getRows(){return [...container.querySelectorAll('.sortable-row')];}
+
+  function onDragStart(e,row){
+    dragEl=row;dragIdx=parseInt(row.dataset.index);
+    setTimeout(()=>row.classList.add('dragging'),0);
+  }
+  function onDragEnd(){
+    if(!dragEl)return;
+    dragEl.classList.remove('dragging');
+    container.querySelectorAll('.drag-over').forEach(r=>r.classList.remove('drag-over'));
+    dragEl=null;dragIdx=null;
+  }
+  function onDragOver(e,row){
+    e.preventDefault();
+    if(!dragEl||row===dragEl)return;
+    container.querySelectorAll('.drag-over').forEach(r=>r.classList.remove('drag-over'));
+    row.classList.add('drag-over');
+  }
+  function onDrop(e,row){
+    e.preventDefault();
+    if(!dragEl||row===dragEl)return;
+    const targetIdx=parseInt(row.dataset.index);
+    if(isNaN(dragIdx)||isNaN(targetIdx))return;
+    // Reorder the data array
+    if(dataKey==='tags'){
+      const arr=STATE.data.tags;
+      const [moved]=arr.splice(dragIdx,1);arr.splice(targetIdx,0,moved);
+    } else if(dataKey==='categories'){
+      const arr=STATE.data.categories;
+      const [moved]=arr.splice(dragIdx,1);arr.splice(targetIdx,0,moved);
+    }
+    saveData();
+    if(dataKey==='tags')renderTagsSettings();
+    else renderCategorySettings();
+  }
+
+  // Touch support
+  let touchStartY=0,touchRow=null;
+  function onTouchStart(e,row){
+    touchRow=row;dragEl=row;dragIdx=parseInt(row.dataset.index);
+    touchStartY=e.touches[0].clientY;
+    row.classList.add('dragging');
+  }
+  function onTouchMove(e){
+    e.preventDefault();
+    if(!dragEl)return;
+    const y=e.touches[0].clientY;
+    const els=getRows().filter(r=>r!==dragEl);
+    container.querySelectorAll('.drag-over').forEach(r=>r.classList.remove('drag-over'));
+    const target=els.find(r=>{const rect=r.getBoundingClientRect();return y>=rect.top&&y<=rect.bottom;});
+    if(target)target.classList.add('drag-over');
+  }
+  function onTouchEnd(e){
+    if(!dragEl)return;
+    const overEl=container.querySelector('.drag-over');
+    if(overEl&&overEl!==dragEl){
+      const targetIdx=parseInt(overEl.dataset.index);
+      if(dataKey==='tags'){const arr=STATE.data.tags;const [m]=arr.splice(dragIdx,1);arr.splice(targetIdx,0,m);}
+      else if(dataKey==='categories'){const arr=STATE.data.categories;const [m]=arr.splice(dragIdx,1);arr.splice(targetIdx,0,m);}
+      saveData();
+      if(dataKey==='tags')renderTagsSettings();else renderCategorySettings();
+    }
+    dragEl.classList.remove('dragging');
+    container.querySelectorAll('.drag-over').forEach(r=>r.classList.remove('drag-over'));
+    dragEl=null;dragIdx=null;
+  }
+
+  getRows().forEach(row=>{
+    const handle=row.querySelector('.drag-handle');
+    if(!handle)return;
+    // Mouse events
+    handle.addEventListener('mousedown',e=>{row.setAttribute('draggable','true');});
+    row.addEventListener('dragstart',e=>onDragStart(e,row));
+    row.addEventListener('dragend',onDragEnd);
+    row.addEventListener('dragover',e=>onDragOver(e,row));
+    row.addEventListener('drop',e=>onDrop(e,row));
+    // Touch events
+    handle.addEventListener('touchstart',e=>onTouchStart(e,row),{passive:false});
+    handle.addEventListener('touchmove',onTouchMove,{passive:false});
+    handle.addEventListener('touchend',onTouchEnd);
+  });
+}
 // ── MODALS ────────────────────────────────────────────────────────────────────
 function openModal(id){document.getElementById(id).classList.add('open');}
 function closeModal(id){document.getElementById(id).classList.remove('open');if(id==='entry-modal'){STATE.editingTxnId=null;closeTagDropdown();dismissAutofill();}}
@@ -2033,7 +2235,7 @@ function showToast(msg){const el=document.getElementById('toast');safeText(el,ms
 
 // ── INIT ──────────────────────────────────────────────────────────────────────
 function init(){
-  initTheme();checkInviteToken();
+  initTheme();
   const stored=sessionStorage.getItem('spendly_token');
   if(stored){
     accessToken=stored;showLoading();
