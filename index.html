@@ -1089,7 +1089,7 @@ const DEFAULT_TAGS=['Food','Travel','Work','Personal','Shopping','Bills','Health
 
 // ── GOOGLE AUTH ───────────────────────────────────────────────────────────────
 const GOOGLE_CLIENT_ID='1056853638242-dpf1lli4pmtm58m8rhji42obqsrn12n6.apps.googleusercontent.com';
-const DRIVE_SCOPE='https://www.googleapis.com/auth/drive.appdata email profile openid';
+const DRIVE_SCOPE='https://www.googleapis.com/auth/drive.appdata https://www.googleapis.com/auth/drive.metadata.readonly email profile openid';
 let accessToken=null;
 
 function loadGSI(){return new Promise(res=>{const s=document.createElement('script');s.src='https://accounts.google.com/gsi/client';s.onload=res;s.onerror=()=>showToast('Failed to load Google Sign-In');document.head.appendChild(s);});}
@@ -1303,29 +1303,61 @@ async function loadDriveStorageInfo(){
   const warnEl=document.getElementById('drive-storage-warn');
   if(!infoEl)return;
   if(!accessToken){safeText(infoEl,'Sign in to see storage info');return;}
-  safeText(infoEl,'Loading storage info…');
+  safeText(infoEl,'Checking…');
   try{
+    // Step 1: Get Spendly file size
+    // appDataFolder files need the files.list call first to get the ID
     const file=await findDriveFile();
-    if(!file){safeText(infoEl,'Spendly data file: not yet created');return;}
-    // Get Spendly file size
-    const r=await driveRequest(`https://www.googleapis.com/drive/v3/files/${file.id}?fields=size`);
-    if(!r.ok){safeText(infoEl,'Storage info unavailable');return;}
+    if(!file){
+      safeText(infoEl,'Spendly data: not yet saved to Drive');
+      return;
+    }
+    // Request file size — appDataFolder files support size field
+    const r=await fetch(
+      `https://www.googleapis.com/drive/v3/files/${file.id}?fields=size,modifiedTime`,
+      {headers:{Authorization:'Bearer '+accessToken}}
+    );
+    if(!r.ok){
+      safeText(infoEl,'File size unavailable');
+      return;
+    }
     const fd=await r.json();
     const sizeBytes=parseInt(fd.size||0);
-    const sizeStr=sizeBytes<1024?sizeBytes+' B':sizeBytes<1048576?(sizeBytes/1024).toFixed(1)+' KB':(sizeBytes/1048576).toFixed(2)+' MB';
-    safeText(infoEl,'Spendly data file: '+sizeStr);
-    // Check Drive quota to show low-storage warning
-    const qr=await driveRequest('https://www.googleapis.com/drive/v3/about?fields=storageQuota');
-    if(!qr.ok)return;
-    const qd=await qr.json();
-    const quota=qd.storageQuota;
-    if(quota&&quota.limit&&quota.usage){
-      const freeBytes=parseInt(quota.limit)-parseInt(quota.usage);
-      const freeMB=freeBytes/1048576;
-      if(warnEl)warnEl.style.display=freeMB<25?'block':'none';
+    let sizeStr;
+    if(sizeBytes<1024)sizeStr=sizeBytes+' B';
+    else if(sizeBytes<1048576)sizeStr=(sizeBytes/1024).toFixed(1)+' KB';
+    else sizeStr=(sizeBytes/1048576).toFixed(2)+' MB';
+    const modified=fd.modifiedTime?new Date(fd.modifiedTime).toLocaleString('en-IN',{day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'}):'';
+    safeText(infoEl,'Spendly file: '+sizeStr+(modified?' · Updated '+modified:''));
+
+    // Step 2: Check Drive quota (may not return limit for all account types)
+    try{
+      const qr=await fetch(
+        'https://www.googleapis.com/drive/v3/about?fields=storageQuota',
+        {headers:{Authorization:'Bearer '+accessToken}}
+      );
+      if(!qr.ok)return;
+      const qd=await qr.json();
+      const quota=qd.storageQuota;
+      // quota.limit is absent for G Suite/Workspace accounts with unlimited storage
+      if(quota&&quota.limit&&quota.usage){
+        const freeBytes=parseInt(quota.limit)-parseInt(quota.usage);
+        const freeMB=freeBytes/1048576;
+        const freeStr=freeMB>1024?(freeMB/1024).toFixed(1)+' GB':freeMB.toFixed(0)+' MB';
+        // Append free space info to the same line
+        safeText(infoEl,'Spendly file: '+sizeStr+' · Drive free: '+freeStr+(modified?' · Updated '+modified:''));
+        if(warnEl)warnEl.style.display=freeMB<25?'block':'none';
+      } else if(quota&&quota.usage&&!quota.limit){
+        // Workspace unlimited — just show usage
+        const usedGB=(parseInt(quota.usage)/1073741824).toFixed(2);
+        safeText(infoEl,'Spendly file: '+sizeStr+' · Drive used: '+usedGB+' GB'+(modified?' · Updated '+modified:''));
+        if(warnEl)warnEl.style.display='none';
+      }
+    }catch(qe){
+      // Quota check failed silently — file size already shown, that's enough
     }
   }catch(e){
-    if(infoEl)safeText(infoEl,'Storage info unavailable');
+    if(infoEl)safeText(infoEl,'Storage info unavailable — check connection');
   }
 }
 
@@ -1595,6 +1627,264 @@ function renderCustomReport(el,expenses,incomes,filterNote=''){
   el.appendChild(listWrap);
 }
 
+// ── DASHBOARD ─────────────────────────────────────────────────────────────────
+function renderDashboard(){
+  const expenses=filterTxns('month','expense');
+  const incomes=filterTxns('month','income');
+  const todayExp=filterTxns('today','expense');
+  const totalExp=expenses.reduce((s,t)=>s+Number(t.amount),0);
+  const totalInc=incomes.reduce((s,t)=>s+Number(t.amount),0);
+  const todayTotal=todayExp.reduce((s,t)=>s+Number(t.amount),0);
+  const lastTotal=filterTxns('last','expense').reduce((s,t)=>s+Number(t.amount),0);
+  const delta=lastTotal>0?((totalExp-lastTotal)/lastTotal*100).toFixed(0):null;
+
+  safeText(document.getElementById('sum-month-spend'),fmt(totalExp));
+  safeText(document.getElementById('sum-month-income'),fmt(totalInc));
+  safeText(document.getElementById('sum-today'),fmt(todayTotal));
+
+  const deltaEl=document.getElementById('sum-month-delta');
+  if(delta!==null){
+    safeText(deltaEl,(Number(delta)>0?'▲ ':'▼ ')+Math.abs(delta)+'% vs last month');
+    deltaEl.style.color=Number(delta)>0?'var(--red)':'var(--green)';
+  } else {
+    safeText(deltaEl,'First month tracked');
+    deltaEl.style.color='var(--text3)';
+  }
+
+  const hasExpenses=expenses.length>0;
+  const hasTxns=STATE.data.transactions.length>0;
+
+  renderDonut(expenses,hasExpenses);
+  renderTopCats(expenses,hasExpenses);
+  renderBarChart(hasTxns);
+  renderInsights(expenses,incomes,hasTxns);
+  renderDowChart(hasTxns);
+  renderRecentTxns();
+  renderQuickEntries();
+}
+
+function renderDonut(expenses,hasData){
+  const wrap=document.getElementById('donut-chart-wrap');
+  const nodata=document.getElementById('donut-nodata');
+  if(!hasData){
+    if(wrap)wrap.style.display='none';
+    if(nodata)nodata.style.display='flex';
+    if(STATE.charts.donut){STATE.charts.donut.destroy();STATE.charts.donut=null;}
+    return;
+  }
+  if(wrap)wrap.style.display='flex';
+  if(nodata)nodata.style.display='none';
+  const bycat={};
+  expenses.forEach(t=>{bycat[t.category]=(bycat[t.category]||0)+Number(t.amount);});
+  const cats=Object.entries(bycat).sort((a,b)=>b[1]-a[1]).slice(0,6);
+  const total=cats.reduce((s,[,v])=>s+v,0);
+  if(STATE.charts.donut){STATE.charts.donut.destroy();STATE.charts.donut=null;}
+  const ctx=document.getElementById('donut-chart').getContext('2d');
+  STATE.charts.donut=new Chart(ctx,{
+    type:'doughnut',
+    data:{labels:cats.map(([id])=>getCat(id).name),datasets:[{data:cats.map(([,v])=>v),backgroundColor:cats.map(([id])=>getCat(id).color),borderWidth:0,hoverOffset:6}]},
+    options:{cutout:'72%',plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>' '+fmt(c.raw)}}}}
+  });
+  safeText(document.getElementById('donut-center'),fmt(total));
+  const legend=document.getElementById('category-legend');
+  legend.innerHTML='';
+  cats.slice(0,5).forEach(([id,val])=>{
+    const cat=getCat(id);
+    const pct=total?Math.round(val/total*100):0;
+    const item=document.createElement('div');
+    item.style.cssText='display:flex;align-items:center;gap:6px;font-size:12px;';
+    item.innerHTML=`<div style="width:8px;height:8px;border-radius:50%;background:${cat.color};flex-shrink:0"></div><span style="flex:1;color:var(--text2);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${sanitize(cat.name)}</span><span style="font-family:var(--font-mono);color:var(--text3)">${pct}%</span>`;
+    legend.appendChild(item);
+  });
+}
+
+function renderTopCats(expenses,hasData){
+  const wrap=document.getElementById('top-cats');
+  const nodata=document.getElementById('topcats-nodata');
+  if(!hasData){
+    if(wrap)wrap.style.display='none';
+    if(nodata)nodata.style.display='flex';
+    return;
+  }
+  if(nodata)nodata.style.display='none';
+  if(wrap)wrap.style.display='flex';
+  wrap.innerHTML='';
+  const bycat={};
+  expenses.forEach(t=>{bycat[t.category]=(bycat[t.category]||0)+Number(t.amount);});
+  const total=Object.values(bycat).reduce((s,v)=>s+v,0);
+  Object.entries(bycat).sort((a,b)=>b[1]-a[1]).slice(0,5).forEach(([id,val])=>{
+    const cat=getCat(id);
+    const pct=total?Math.round(val/total*100):0;
+    const row=document.createElement('div');
+    row.className='prog-row';
+    row.innerHTML=`<div class="prog-label"><div class="prog-label-name"><span>${sanitize(cat.icon)}</span><span>${sanitize(cat.name)}</span></div><span style="font-family:var(--font-mono);font-size:13px">${fmt(val)}</span></div><div class="prog-bar-bg"><div class="prog-bar-fill" style="width:${pct}%;background:${cat.color}"></div></div>`;
+    wrap.appendChild(row);
+  });
+}
+
+function renderBarChart(hasData){
+  const canvas=document.getElementById('bar-chart');
+  const nodata=document.getElementById('bar-nodata');
+  if(!hasData){
+    if(canvas)canvas.style.display='none';
+    if(nodata)nodata.style.display='flex';
+    if(STATE.charts.bar){STATE.charts.bar.destroy();STATE.charts.bar=null;}
+    return;
+  }
+  if(canvas)canvas.style.display='block';
+  if(nodata)nodata.style.display='none';
+  const now=new Date();
+  const days=new Date(now.getFullYear(),now.getMonth()+1,0).getDate();
+  const labels=[],data=[];
+  for(let d=1;d<=days;d++){
+    labels.push(d);
+    data.push(STATE.data.transactions.filter(t=>{
+      if(!t.date||t.type!=='expense')return false;
+      const td=parseDateStr(t.date);
+      if(!td)return false;
+      return td.getFullYear()===now.getFullYear()&&td.getMonth()===now.getMonth()&&td.getDate()===d;
+    }).reduce((s,t)=>s+Number(t.amount),0));
+  }
+  if(STATE.charts.bar){STATE.charts.bar.destroy();STATE.charts.bar=null;}
+  STATE.charts.bar=new Chart(canvas.getContext('2d'),{
+    type:'bar',
+    data:{labels,datasets:[{data,backgroundColor:'rgba(124,108,252,.5)',borderRadius:4,borderSkipped:false}]},
+    options:{plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>' '+fmt(c.raw)}}},scales:{x:{grid:{display:false},ticks:{color:'var(--text3)',font:{size:10}}},y:{grid:{color:'rgba(128,128,128,.1)'},ticks:{color:'var(--text3)',font:{size:10},callback:v=>v?fmt(v):''}}},maintainAspectRatio:true}
+  });
+}
+
+function renderDowChart(hasData){
+  const wrap=document.getElementById('dow-chart-wrap');
+  const nodata=document.getElementById('dow-nodata');
+  if(!hasData){
+    if(wrap)wrap.style.display='none';
+    if(nodata)nodata.style.display='flex';
+    return;
+  }
+  const days=['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+  const totals=[0,0,0,0,0,0,0],counts=[0,0,0,0,0,0,0];
+  STATE.data.transactions.filter(t=>t.type==='expense').forEach(t=>{
+    const d=parseDateStr(t.date);if(!d)return;
+    const dow=d.getDay();totals[dow]+=Number(t.amount);counts[dow]++;
+  });
+  const avgs=totals.map((t,i)=>counts[i]?Math.round(t/counts[i]):0);
+  const maxAvg=Math.max(...avgs,1);
+  if(avgs.every(v=>v===0)){
+    if(wrap)wrap.style.display='none';
+    if(nodata)nodata.style.display='flex';
+    return;
+  }
+  if(nodata)nodata.style.display='none';
+  if(wrap){wrap.style.display='block';wrap.innerHTML='';}
+  days.forEach((day,i)=>{
+    const pct=Math.round(avgs[i]/maxAvg*100);
+    const row=document.createElement('div');
+    row.className='dow-bar-row';
+    row.innerHTML=`<div class="dow-bar-label">${sanitize(day)}</div><div class="dow-bar-bg"><div class="dow-bar-fill" style="width:${pct}%;background:rgba(124,108,252,.6);"><span class="dow-bar-val">${avgs[i]>0?fmt(avgs[i]):''}</span></div></div>`;
+    wrap.appendChild(row);
+  });
+}
+
+function renderInsights(expenses,incomes,hasTxns){
+  const el=document.getElementById('insights-list');
+  el.innerHTML='';
+  if(!hasTxns){
+    el.innerHTML=`<div class="insight-card"><div class="insight-icon">💡</div><div class="insight-text">Start adding expenses and income to see smart insights here.</div></div>`;
+    return;
+  }
+  const insights=[];
+  const totalExp=expenses.reduce((s,t)=>s+Number(t.amount),0);
+  const lastExp=filterTxns('last','expense').reduce((s,t)=>s+Number(t.amount),0);
+  if(lastExp>0&&totalExp>lastExp){
+    const pct=Math.round((totalExp-lastExp)/lastExp*100);
+    insights.push({icon:'📈',text:`You've spent <strong>${pct}% more</strong> than last month so far.`});
+  }
+  const bycat={};
+  expenses.forEach(t=>{bycat[t.category]=(bycat[t.category]||0)+Number(t.amount);});
+  const topCat=Object.entries(bycat).sort((a,b)=>b[1]-a[1])[0];
+  if(topCat){
+    const cat=getCat(topCat[0]);
+    insights.push({icon:cat.icon,text:`Your biggest category this month is <strong>${sanitize(cat.name)}</strong> at ${fmt(topCat[1])}.`});
+  }
+  const totalInc=incomes.reduce((s,t)=>s+Number(t.amount),0);
+  if(totalInc>0){
+    const rate=Math.round((totalInc-totalExp)/totalInc*100);
+    insights.push({icon:rate>=0?'💚':'⚠️',text:rate>=0?`You're saving <strong>${rate}%</strong> of your income this month.`:`You're <strong>spending more than you earn</strong> this month.`});
+  }
+  if(!insights.length)insights.push({icon:'✅',text:`You've spent ${fmt(totalExp)} this month. Keep tracking!`});
+  insights.forEach(i=>{
+    const c=document.createElement('div');c.className='insight-card';
+    c.innerHTML=`<div class="insight-icon">${i.icon}</div><div class="insight-text">${i.text}</div>`;
+    el.appendChild(c);
+  });
+}
+
+function renderRecentTxns(){
+  const recent=[...STATE.data.transactions].sort((a,b)=>{
+    const da=parseDateStr(a.date)||new Date(0);
+    const db=parseDateStr(b.date)||new Date(0);
+    if(db-da!==0)return db-da;
+    return(b.time||'00:00').localeCompare(a.time||'00:00');
+  }).slice(0,10);
+  const el=document.getElementById('recent-txns');
+  el.innerHTML='';
+  if(!recent.length){
+    el.innerHTML=`<div style="display:flex;flex-direction:column;align-items:center;padding:32px 16px;gap:10px;text-align:center"><div style="font-size:48px;opacity:.3">📭</div><div style="font-size:13px;color:var(--text3)">No entries yet — tap + to add your first</div></div>`;
+    return;
+  }
+  recent.forEach(t=>el.appendChild(makeTxnRow(t)));
+}
+
+function makeTxnRow(t){
+  const cat=getCat(t.category);
+  const div=document.createElement('div');
+  div.className='txn-item';
+  div.onclick=()=>openTxnDetail(t.id);
+  const tags=(t.tags||[]).map(tag=>`<span class="txn-tag">${sanitize(tag)}</span>`).join('');
+  const timeStr=t.time?` · ${t.time}`:'';
+  div.innerHTML=`<div class="txn-icon" style="background:${cat.color}22">${sanitize(cat.icon)}</div>
+    <div class="txn-info"><div class="txn-title">${sanitize(t.title||'Untitled')}</div><div class="txn-meta"><span>${sanitize(cat.name)}${timeStr}</span>${tags}</div></div>
+    <div class="txn-amount ${t.type==='expense'?'exp':'inc'}" style="font-size:18px;">${t.type==='expense'?'−':'+'} ${fmt(t.amount)}</div>`;
+  return div;
+}
+
+// ── HISTORY ───────────────────────────────────────────────────────────────────
+function setHistoryFilter(el,period){
+  document.querySelectorAll('#history-filter-bar .filter-pill').forEach(p=>p.classList.remove('active'));
+  el.classList.add('active');
+  STATE.historyPeriod=period;
+  renderHistory();
+}
+
+function renderHistory(){
+  const q=(document.getElementById('history-search-input')?.value||'').toLowerCase();
+  const[s,e]=getDateRange(STATE.historyPeriod||'month');
+  let txns=STATE.data.transactions.filter(t=>{
+    const d=parseDateStr(t.date);return d&&d>=s&&d<=e;
+  });
+  if(q)txns=txns.filter(t=>(t.title||'').toLowerCase().includes(q)||(t.notes||'').toLowerCase().includes(q)||(t.tags||[]).some(tag=>tag.toLowerCase().includes(q)));
+  txns.sort((a,b)=>{
+    const da=parseDateStr(a.date)||new Date(0);
+    const db=parseDateStr(b.date)||new Date(0);
+    if(db-da!==0)return db-da;
+    return(b.time||'00:00').localeCompare(a.time||'00:00');
+  });
+  const el=document.getElementById('history-list');
+  el.innerHTML='';
+  if(!txns.length){
+    el.innerHTML=`<div class="empty-state"><div class="empty-icon">🔍</div><div class="empty-title">No transactions found</div></div>`;
+    return;
+  }
+  let lastDate='';
+  txns.forEach(t=>{
+    const ds=(parseDateStr(t.date)||new Date()).toLocaleDateString('en-IN',{weekday:'short',day:'numeric',month:'short'});
+    if(ds!==lastDate){
+      const dh=document.createElement('div');dh.className='date-group-header';safeText(dh,ds);el.appendChild(dh);lastDate=ds;
+    }
+    el.appendChild(makeTxnRow(t));
+  });
+}
+  
 // ── TXN DETAIL ────────────────────────────────────────────────────────────────
 function openTxnDetail(id){
   const t=STATE.data.transactions.find(x=>x.id===id);if(!t)return;
