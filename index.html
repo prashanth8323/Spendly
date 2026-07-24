@@ -1202,6 +1202,7 @@ function showPage(name){
   document.querySelectorAll('.nav-item').forEach(n=>n.classList.remove('active'));
   document.getElementById('page-'+name).classList.add('active');
   const nav=document.getElementById('nav-'+name);if(nav)nav.classList.add('active');
+  if(name==='dashboard')renderDashboard();
   if(name==='history')renderHistory();
   if(name==='reports'){renderReportFilterPills();renderReports();}
   if(name==='settings'){renderSettings();loadDriveStorageInfo();}
@@ -1298,38 +1299,32 @@ function generateScheduledNotifications(){ /* intentionally empty */ }
 
 // ── DRIVE STORAGE INFO ────────────────────────────────────────────────────────
 async function loadDriveStorageInfo(){
+  const infoEl=document.getElementById('drive-storage-info');
+  const warnEl=document.getElementById('drive-storage-warn');
+  if(!infoEl)return;
+  if(!accessToken){safeText(infoEl,'Sign in to see storage info');return;}
+  safeText(infoEl,'Loading storage info…');
   try{
-    // Get Spendly file size
     const file=await findDriveFile();
-    const infoEl=document.getElementById('drive-storage-info');
-    const warnEl=document.getElementById('drive-storage-warn');
-    if(!infoEl)return;
-    if(!file){safeText(infoEl,'Spendly data: not yet saved');return;}
-    // Get file size
-    const r=await driveRequest(`https://www.googleapis.com/drive/v3/files/${file.id}?fields=size,modifiedTime`);
+    if(!file){safeText(infoEl,'Spendly data file: not yet created');return;}
+    // Get Spendly file size
+    const r=await driveRequest(`https://www.googleapis.com/drive/v3/files/${file.id}?fields=size`);
+    if(!r.ok){safeText(infoEl,'Storage info unavailable');return;}
     const fd=await r.json();
     const sizeBytes=parseInt(fd.size||0);
-    const sizeKb=(sizeBytes/1024).toFixed(1);
-    safeText(infoEl,`Spendly file: ${sizeKb} KB`);
-    // Check Drive quota
+    const sizeStr=sizeBytes<1024?sizeBytes+' B':sizeBytes<1048576?(sizeBytes/1024).toFixed(1)+' KB':(sizeBytes/1048576).toFixed(2)+' MB';
+    safeText(infoEl,'Spendly data file: '+sizeStr);
+    // Check Drive quota to show low-storage warning
     const qr=await driveRequest('https://www.googleapis.com/drive/v3/about?fields=storageQuota');
+    if(!qr.ok)return;
     const qd=await qr.json();
     const quota=qd.storageQuota;
     if(quota&&quota.limit&&quota.usage){
-      const limitBytes=parseInt(quota.limit);
-      const usedBytes=parseInt(quota.usage);
-      const freeBytes=limitBytes-usedBytes;
-      const freeMB=freeBytes/1024/1024;
-      if(warnEl){
-        if(freeMB<25){
-          warnEl.style.display='block';
-        } else {
-          warnEl.style.display='none';
-        }
-      }
+      const freeBytes=parseInt(quota.limit)-parseInt(quota.usage);
+      const freeMB=freeBytes/1048576;
+      if(warnEl)warnEl.style.display=freeMB<25?'block':'none';
     }
   }catch(e){
-    const infoEl=document.getElementById('drive-storage-info');
     if(infoEl)safeText(infoEl,'Storage info unavailable');
   }
 }
@@ -1605,7 +1600,7 @@ function openTxnDetail(id){
   const t=STATE.data.transactions.find(x=>x.id===id);if(!t)return;
   const cat=getCat(t.category);const el=document.getElementById('txn-detail-body');el.innerHTML='';
   const timeStr=t.time?` at ${t.time}`:'';
-  const rows=[['Type',t.type==='expense'?'<span class="badge badge-red">Expense</span>':'<span class="badge badge-green">Income</span>'],['Amount',`<span style="font-family:var(--font-mono);font-size:20px">${t.type==='expense'?'−':'+'} ${fmtFull(t.amount)}</span>`],['Title',sanitize(t.title||'—')],['Date & Time',new Date(t.date).toLocaleDateString('en-IN',{weekday:'long',day:'numeric',month:'long',year:'numeric'})+timeStr],['Category',`${sanitize(cat.icon)} ${sanitize(cat.name)}`],['Tags',(t.tags||[]).length?(t.tags||[]).map(tag=>`<span class="tag-chip">${sanitize(tag)}</span>`).join(''):'—'],['Payment',sanitize(t.paymentMethod||'—')],['Notes',sanitize(t.notes||'—')]];
+  const rows=[['Type',t.type==='expense'?'<span class="badge badge-red">Expense</span>':'<span class="badge badge-green">Income</span>'],['Amount',`<span style="font-family:var(--font-mono);font-size:20px">${t.type==='expense'?'−':'+'} ${fmtFull(t.amount)}</span>`],['Title',sanitize(t.title||'—')],['Date & Time',(parseDateStr(t.date)||new Date()).toLocaleDateString('en-IN',{weekday:'long',day:'numeric',month:'long',year:'numeric'})+timeStr],['Category',`${sanitize(cat.icon)} ${sanitize(cat.name)}`],['Tags',(t.tags||[]).length?(t.tags||[]).map(tag=>`<span class="tag-chip">${sanitize(tag)}</span>`).join(''):'—'],['Payment',sanitize(t.paymentMethod||'—')],['Notes',sanitize(t.notes||'—')]];
   (STATE.data.customFields||[]).forEach(cf=>{const val=(t.customFields||{})[cf.id];if(val!==undefined&&val!=='')rows.push([sanitize(cf.label),sanitize(String(val))]);});
   rows.forEach(([k,v])=>{const row=document.createElement('div');row.style.cssText='display:flex;justify-content:space-between;align-items:flex-start;padding:10px 0;border-bottom:1px solid var(--border);gap:12px;';row.innerHTML=`<span style="font-size:12px;color:var(--text3);font-family:var(--font-display);font-weight:700;letter-spacing:.04em;flex-shrink:0;text-transform:uppercase">${k}</span><span style="font-size:14px;text-align:right;flex:1">${v}</span>`;el.appendChild(row);});
   const btnRow=document.createElement('div');btnRow.style.cssText='display:flex;gap:8px;margin-top:16px;';
